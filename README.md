@@ -60,7 +60,7 @@ All mappings are local to `markdown` filetypes and typically use `<leader>` as t
 | `<leader>mc`            | Insert opening `<span style="color:">`                                 |
 | `<leader>mC`            | Insert closing `</span>`                                               |
 | `<leader>mT`            | Insert HTML table template                                             |
-| `<leader>|`            | Insert Pandoc-style footnote `[^]`                                     |
+| `<leader>\|`            | Insert Pandoc-style footnote `[^]`                                     |
 | **Path Tools**          |                                                                        |
 | `<leader>mfe{char}`     | Toggle Env Path (expand/collapse `$HOME`) for path wrapped in `{char}` |
 | `<leader>mfa{char}`     | Convert path to Absolute for path wrapped in `{char}`                  |
