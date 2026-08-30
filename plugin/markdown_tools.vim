@@ -1,10 +1,23 @@
 " ==============================================================================
 " Plugin:        vim-markdown-tools
-" File:          plugin/markdown_tools.vim
+" File:          markdown_tools.vim
 " Description:   A comprehensive Markdown toolkit for Vim/Neovim.
+"
+" Features:
+"   - 📝 Auto-loads customizable templates for new Markdown files.
+"   - 👁️ Seamless previewing and exporting (Pandoc HTML, Marp presentations).
+"   - 🔗 Advanced Path Management: Toggle between Absolute, Relative, and $HOME
+"     environment paths instantly for files and links under the cursor.
+"   - 📂 Smart Note Moving: Safely relocates Markdown files and migrates
+"     associated './figures' directories.
+"   - 📸 Native Flameshot integration for capturing and pasting scaled screenshots.
+"   - 🔍 Search Tools: Instantly populate Quickfix/Location lists with all
+"     embedded websites, file paths, or markdown headers.
+"   - ⚡ Quick-insert mappings for images, videos, checkboxes, and tables.
+"
 " Maintainer:    JordanWu1997 <jordankhwu@gmail.com>
 " Repository:    https://github.com/JordanWu1997/vim-markdown-tools
-" Version:       1.2.0
+" Version:       1.0.0
 " License:       MIT License
 " ==============================================================================
 
@@ -14,261 +27,240 @@ endif
 let g:loaded_markdown_tools = 1
 
 " --- Configuration Defaults ---
+" Get the absolute path to the root of this plugin directory
 let s:plugin_root = expand('<sfile>:p:h:h')
 
-let g:md_tools_template_dir    = get(g:, 'md_tools_template_dir', s:plugin_root . '/templates/')
-let g:md_tools_table_template  = get(g:, 'md_tools_table_template', g:md_tools_template_dir . 'table.html')
-let g:md_tools_browser         = get(g:, 'md_tools_browser', $BROWSER)
-let g:md_tools_use_template    = get(g:, 'md_tools_use_template', 1)
-let g:md_tools_no_mappings     = get(g:, 'md_tools_no_mappings', 0)
-let g:md_tools_enable_spell    = get(g:, 'md_tools_enable_spell', 1)
-let g:md_tools_author          = get(g:, 'md_tools_author', '')
-let g:md_tools_email           = get(g:, 'md_tools_email', '')
-let g:md_tools_search_dir      = get(g:, 'md_tools_search_dir', '')
+" Set default paths to point to the bundled folders
+let g:md_tools_template_dir = get(g:, 'md_tools_template_dir', s:plugin_root . '/templates/')
+let g:md_tools_table_template = get(g:, 'md_tools_table_template', g:md_tools_template_dir . 'table.html')
+let g:md_tools_browser = get(g:, 'md_tools_browser', $BROWSER)
+let g:md_tools_use_template = get(g:, 'md_tools_use_template', 1)
 
-" --- Backward Compatibility Global Aliases ---
-function! MarkdownTools_ToggleEnvPath(char) abort
-    call markdown_tools#toggle_env_path(a:char)
+" --- Helper Functions ---
+
+function! s:InsertMarkdownTemplate() abort
+    if line('$') == 1 && empty(getline(1))
+        let l:template = g:md_tools_template_dir . 'markdown_template.md'
+        if filereadable(l:template)
+            exec '0r' l:template
+            keeppatterns silent! %s/YYYY-mm-DD HH:MM:SS/\=strftime("%Y-%m-%d %T")/g
+        endif
+    endif
 endfunction
 
-function! MarkdownTools_ConvertRelativeToAbsolute(char) abort
-    call markdown_tools#convert_rel_to_abs(a:char)
+function! MarkdownTools_ToggleEnvPath(char)
+    let l:word = expand('<cfile>')
+    let l:home = $HOME
+    if l:word =~? '^$HOME\>'
+        let l:subpath = substitute(l:word, '^$HOME', '', '')
+        let l:absolute = l:home . l:subpath
+        let l:result = substitute(l:absolute, '/\+$', '', '')
+    elseif l:word =~? '^' . escape(l:home, '/')
+        let l:subpath = substitute(l:word, '^' . escape(l:home, '/'), '', '')
+        let l:result = '$HOME' . l:subpath
+    else
+        let l:result = l:word
+    endif
+    execute "normal! ci" . a:char . l:result
 endfunction
 
-function! MarkdownTools_ConvertAbsoluteToRelative(char) abort
-    call markdown_tools#convert_abs_to_rel(a:char)
+function! MarkdownTools_ConvertRelativeToAbsolute(char)
+    let l:path = expand('<cfile>:p')
+    let l:absolute = trim(system(printf('realpath %s', shellescape(l:path))))
+    exe "normal! ci" . a:char . l:absolute
 endfunction
 
-function! MarkdownTools_RenameFilePath() abort
-    call markdown_tools#rename_file_path()
+function! MarkdownTools_ConvertAbsoluteToRelative(char)
+    let l:path = expand('<cfile>')
+    let l:relpath = trim(system(printf('realpath -s --relative-to=%s %s', shellescape(expand('%:p:h')), shellescape(l:path))))
+    exe "normal! ci" . a:char . l:relpath
 endfunction
 
-function! MarkdownTools_FindWebsitesOnly() abort
-    call markdown_tools#find_websites_only()
-endfunction
-
-function! MarkdownTools_FindFilepathsOnly() abort
-    call markdown_tools#find_filepaths_only()
-endfunction
-
-function! MarkdownTools_FindAllPathsAndWebsites() abort
-    call markdown_tools#find_all_paths_and_websites()
-endfunction
-
-function! MarkdownTools_CaptureAndPasteImage() abort
-    call markdown_tools#capture_and_paste_image()
-endfunction
-
-function! MarkdownTools_MoveNote() abort
-    call markdown_tools#move_note()
-endfunction
-
-function! MarkdownTools_FindBacklinks() abort
-    call markdown_tools#find_backlinks()
-endfunction
-
-function! MarkdownTools_FindDeadLinks() abort
-    call markdown_tools#find_dead_links()
-endfunction
-
-function! MarkdownTools_FindOrphanFigures() abort
-    call markdown_tools#find_orphan_figures()
-endfunction
-
-function! MarkdownTools_CleanOrphanFigures() abort
-    call markdown_tools#clean_orphan_figures()
-endfunction
-
-function! MarkdownTools_ToggleCheckbox() abort
-    call markdown_tools#toggle_checkbox()
-endfunction
-
-function! MarkdownTools_FormatTable() abort
-    call markdown_tools#format_table()
-endfunction
-
-function! MarkdownTools_GenerateTOC() abort
-    call markdown_tools#generate_toc()
-endfunction
-
-function! MarkdownTools_FindTodos() abort
-    call markdown_tools#find_todos()
-endfunction
-
-" --- <Plug> Mappings ---
-
-" Preview & Export
-nnoremap <silent> <Plug>(MarkdownToolsOpenBrowser)     :call markdown_tools#open_in_browser()<CR>
-nnoremap <silent> <Plug>(MarkdownToolsExportMarp)      :call markdown_tools#export_marp()<CR>
-nnoremap <silent> <Plug>(MarkdownToolsOpenMarp)        :call markdown_tools#open_marp_html()<CR>
-nnoremap <silent> <Plug>(MarkdownToolsExportPandoc)    :call markdown_tools#export_pandoc()<CR>
-nnoremap <silent> <Plug>(MarkdownToolsOpenPandoc)      :call markdown_tools#open_pandoc_html()<CR>
-
-" Editing Utilities
-nnoremap <silent> <Plug>(MarkdownToolsToggleCheckbox)  :call markdown_tools#toggle_checkbox()<CR>
-nnoremap <silent> <Plug>(MarkdownToolsFormatTable)     :call markdown_tools#format_table()<CR>
-nnoremap <silent> <Plug>(MarkdownToolsGenerateTOC)     :call markdown_tools#generate_toc()<CR>
-nnoremap <silent> <Plug>(MarkdownToolsFindTodos)       :call markdown_tools#find_todos()<CR>
-
-" Insertions
-nnoremap <silent> <Plug>(MarkdownToolsInsertImgLink)   i![this_is_an_image]()<Left>
-nnoremap <silent> <Plug>(MarkdownToolsInsertImgTag)    i<img src="" title="" width="100%" height="100%"/><Esc>38<Left>i
-nnoremap <silent> <Plug>(MarkdownToolsInsertVideoTag)  i<video src="" title="" width="100%" height="100%" controls/><Esc>47<Left>i
-nnoremap <silent> <Plug>(MarkdownToolsInsertLink)      i[this_is_a_link]()<Left>
-nnoremap <silent> <Plug>(MarkdownToolsInsertCheckbox)  i- [ ]<Space>
-nnoremap <silent> <Plug>(MarkdownToolsInsertCodeBlock) i```<CR>```<Up>
-nnoremap <silent> <Plug>(MarkdownToolsInsertTag)       i::<Esc>i
-nnoremap <silent> <Plug>(MarkdownToolsInsertColorSpan) i<span style="color:"><Esc>F<<Esc>19<Right>i
-nnoremap <silent> <Plug>(MarkdownToolsInsertColorSpanClose) a</span><Esc>
-nnoremap <silent> <Plug>(MarkdownToolsInsertTable)     :call markdown_tools#insert_table_template()<CR>
-nnoremap <silent> <Plug>(MarkdownToolsInsertFootnote)  i[^]<Left>
-
-" Path Tools
-nnoremap <silent> <Plug>(MarkdownToolsToggleEnvQuote)    :call markdown_tools#toggle_env_path('"')<CR>
-nnoremap <silent> <Plug>(MarkdownToolsToggleEnvSingle)   :call markdown_tools#toggle_env_path("'")<CR>
-nnoremap <silent> <Plug>(MarkdownToolsToggleEnvParen)    :call markdown_tools#toggle_env_path('(')<CR>
-nnoremap <silent> <Plug>(MarkdownToolsToggleEnvBacktick) :call markdown_tools#toggle_env_path('`')<CR>
-nnoremap <silent> <Plug>(MarkdownToolsToggleEnvWord)     :call markdown_tools#toggle_env_path('W')<CR>
-
-nnoremap <silent> <Plug>(MarkdownToolsAbsToRelQuote)     :call markdown_tools#convert_abs_to_rel('"')<CR>
-nnoremap <silent> <Plug>(MarkdownToolsAbsToRelSingle)    :call markdown_tools#convert_abs_to_rel("'")<CR>
-nnoremap <silent> <Plug>(MarkdownToolsAbsToRelParen)     :call markdown_tools#convert_abs_to_rel('(')<CR>
-nnoremap <silent> <Plug>(MarkdownToolsAbsToRelBacktick)  :call markdown_tools#convert_abs_to_rel('`')<CR>
-nnoremap <silent> <Plug>(MarkdownToolsAbsToRelWord)      :call markdown_tools#convert_abs_to_rel('W')<CR>
-
-nnoremap <silent> <Plug>(MarkdownToolsRelToAbsQuote)     :call markdown_tools#convert_rel_to_abs('"')<CR>
-nnoremap <silent> <Plug>(MarkdownToolsRelToAbsSingle)    :call markdown_tools#convert_rel_to_abs("'")<CR>
-nnoremap <silent> <Plug>(MarkdownToolsRelToAbsParen)     :call markdown_tools#convert_rel_to_abs('(')<CR>
-nnoremap <silent> <Plug>(MarkdownToolsRelToAbsBacktick)  :call markdown_tools#convert_rel_to_abs('`')<CR>
-nnoremap <silent> <Plug>(MarkdownToolsRelToAbsWord)      :call markdown_tools#convert_rel_to_abs('W')<CR>
-
-" File & Asset Management
-nnoremap <silent> <Plug>(MarkdownToolsRenameFilePath)   :call markdown_tools#rename_file_path()<CR>
-vnoremap <silent> <Plug>(MarkdownToolsRenameFilePath)   :<C-u>call markdown_tools#rename_file_path()<CR>
-nnoremap <silent> <Plug>(MarkdownToolsMoveNote)         :call markdown_tools#move_note()<CR>
-nnoremap <silent> <Plug>(MarkdownToolsCapturePaste)     :call markdown_tools#capture_and_paste_image()<CR>
-nnoremap <silent> <Plug>(MarkdownToolsPasteClipboard)   :call markdown_tools#paste_from_clipboard()<CR>
-
-" Search & Discovery
-nnoremap <silent> <Plug>(MarkdownToolsFindAllPaths)     :call markdown_tools#find_all_paths_and_websites()<CR>
-nnoremap <silent> <Plug>(MarkdownToolsFindWebsites)     :call markdown_tools#find_websites_only()<CR>
-nnoremap <silent> <Plug>(MarkdownToolsFindFilepaths)    :call markdown_tools#find_filepaths_only()<CR>
-nnoremap <silent> <Plug>(MarkdownToolsFindHeadersLoc)   :lvimgrep /^#/ %<CR>
-nnoremap <silent> <Plug>(MarkdownToolsFindHeadersQf)    :vimgrep /^#/ %<CR>
-nnoremap <silent> <Plug>(MarkdownToolsFindBacklinks)    :call markdown_tools#find_backlinks()<CR>
-nnoremap <silent> <Plug>(MarkdownToolsFindDeadLinks)    :call markdown_tools#find_dead_links()<CR>
-nnoremap <silent> <Plug>(MarkdownToolsFindOrphanFigures):call markdown_tools#find_orphan_figures()<CR>
-nnoremap <silent> <Plug>(MarkdownToolsCleanOrphanFigures):call markdown_tools#clean_orphan_figures()<CR>
-
-" --- User Commands ---
-command! -buffer MarkdownFormatTable        call markdown_tools#format_table()
-command! -buffer MarkdownGenerateTOC        call markdown_tools#generate_toc()
-command! -buffer MarkdownUpdateTOC          call markdown_tools#generate_toc()
-command! -buffer MarkdownToggleCheckbox     call markdown_tools#toggle_checkbox()
-command! -buffer MarkdownFindTodos          call markdown_tools#find_todos()
-command! -buffer MarkdownFindBacklinks      call markdown_tools#find_backlinks()
-command! -buffer MarkdownFindDeadLinks      call markdown_tools#find_dead_links()
-command! -buffer MarkdownFindOrphanFigures  call markdown_tools#find_orphan_figures()
-command! -buffer MarkdownCleanOrphanFigures call markdown_tools#clean_orphan_figures()
-command! -buffer MarkdownMoveNote           call markdown_tools#move_note()
-command! -buffer MarkdownCaptureImage       call markdown_tools#capture_and_paste_image()
-command! -buffer MarkdownPasteClipboard     call markdown_tools#paste_from_clipboard()
-command! -buffer MarkdownRenameFile         call markdown_tools#rename_file_path()
-command! -buffer MarkdownExportMarp         call markdown_tools#export_marp()
-command! -buffer MarkdownExportPandoc       call markdown_tools#export_pandoc()
-
-" --- Default Mappings Application ---
-
-function! s:ApplyDefaultMappings() abort
-    if get(g:, 'md_tools_no_mappings', 0)
+function! MarkdownTools_RenameFilePath()
+    let l:orig_path = expand('<cfile>')
+    if !filereadable(l:orig_path) && !isdirectory(l:orig_path)
+        echoerr "Not a valid file or directory: " . l:orig_path
         return
     endif
-
-    " Preview & Export
-    nmap <buffer> <leader>mo <Plug>(MarkdownToolsOpenBrowser)
-    nmap <buffer> <leader>mp <Plug>(MarkdownToolsExportMarp)
-    nmap <buffer> <leader>mP <Plug>(MarkdownToolsOpenMarp)
-    nmap <buffer> <leader>me <Plug>(MarkdownToolsExportPandoc)
-    nmap <buffer> <leader>mE <Plug>(MarkdownToolsOpenPandoc)
-
-    " Editing Utilities
-    nmap <buffer> <leader>mx  <Plug>(MarkdownToolsToggleCheckbox)
-    nmap <buffer> <leader>mtf <Plug>(MarkdownToolsFormatTable)
-    nmap <buffer> <leader>mtc <Plug>(MarkdownToolsGenerateTOC)
-    nmap <buffer> <leader>mft <Plug>(MarkdownToolsFindTodos)
-
-    " Insertions
-    nmap <buffer> <leader>mi <Plug>(MarkdownToolsInsertImgLink)
-    nmap <buffer> <leader>mI <Plug>(MarkdownToolsInsertImgTag)
-    nmap <buffer> <leader>mV <Plug>(MarkdownToolsInsertVideoTag)
-    nmap <buffer> <leader>ml <Plug>(MarkdownToolsInsertLink)
-    nmap <buffer> <leader>mb <Plug>(MarkdownToolsInsertCheckbox)
-    nmap <buffer> <leader>mB <Plug>(MarkdownToolsInsertCodeBlock)
-    nmap <buffer> <leader>mw <Plug>(MarkdownToolsInsertTag)
-    nmap <buffer> <leader>mc <Plug>(MarkdownToolsInsertColorSpan)
-    nmap <buffer> <leader>mC <Plug>(MarkdownToolsInsertColorSpanClose)
-    nmap <buffer> <leader>mT <Plug>(MarkdownToolsInsertTable)
-    nmap <buffer> <leader><bar> <Plug>(MarkdownToolsInsertFootnote)
-
-    " Path Tools
-    nmap <buffer> <silent> <leader>mfe" <Plug>(MarkdownToolsToggleEnvQuote)
-    nmap <buffer> <silent> <leader>mfe' <Plug>(MarkdownToolsToggleEnvSingle)
-    nmap <buffer> <silent> <leader>mfe( <Plug>(MarkdownToolsToggleEnvParen)
-    nmap <buffer> <silent> <leader>mfe) <Plug>(MarkdownToolsToggleEnvParen)
-    nmap <buffer> <silent> <leader>mfe` <Plug>(MarkdownToolsToggleEnvBacktick)
-    nmap <buffer> <silent> <leader>mfew <Plug>(MarkdownToolsToggleEnvWord)
-
-    nmap <buffer> <silent> <leader>mfa" <Plug>(MarkdownToolsRelToAbsQuote)
-    nmap <buffer> <silent> <leader>mfa' <Plug>(MarkdownToolsRelToAbsSingle)
-    nmap <buffer> <silent> <leader>mfa( <Plug>(MarkdownToolsRelToAbsParen)
-    nmap <buffer> <silent> <leader>mfa) <Plug>(MarkdownToolsRelToAbsParen)
-    nmap <buffer> <silent> <leader>mfa` <Plug>(MarkdownToolsRelToAbsBacktick)
-    nmap <buffer> <silent> <leader>mfaw <Plug>(MarkdownToolsRelToAbsWord)
-
-    nmap <buffer> <silent> <leader>mfr" <Plug>(MarkdownToolsAbsToRelQuote)
-    nmap <buffer> <silent> <leader>mfr' <Plug>(MarkdownToolsAbsToRelSingle)
-    nmap <buffer> <silent> <leader>mfr( <Plug>(MarkdownToolsAbsToRelParen)
-    nmap <buffer> <silent> <leader>mfr) <Plug>(MarkdownToolsAbsToRelParen)
-    nmap <buffer> <silent> <leader>mfr` <Plug>(MarkdownToolsAbsToRelBacktick)
-    nmap <buffer> <silent> <leader>mfrw <Plug>(MarkdownToolsAbsToRelWord)
-
-    nmap <buffer> <leader>mfR <Plug>(MarkdownToolsRenameFilePath)
-    vmap <buffer> <leader>mfR <Plug>(MarkdownToolsRenameFilePath)
-
-    " Search & Navigation
-    nmap <buffer> <leader>mfA <Plug>(MarkdownToolsFindAllPaths)
-    nmap <buffer> <leader>mfw <Plug>(MarkdownToolsFindWebsites)
-    nmap <buffer> <leader>mff <Plug>(MarkdownToolsFindFilepaths)
-    nmap <buffer> <leader>mfh <Plug>(MarkdownToolsFindHeadersLoc)
-    nmap <buffer> <leader>mfH <Plug>(MarkdownToolsFindHeadersQf)
-    nmap <buffer> <leader>mfb <Plug>(MarkdownToolsFindBacklinks)
-    nmap <buffer> <leader>mfd <Plug>(MarkdownToolsFindDeadLinks)
-    nmap <buffer> <leader>mfo <Plug>(MarkdownToolsFindOrphanFigures)
-    nmap <buffer> <leader>mfc <Plug>(MarkdownToolsCleanOrphanFigures)
-
-    " Note/Image management
-    nmap <buffer> <leader>mfm <Plug>(MarkdownToolsMoveNote)
-    nmap <buffer> <leader>mfp <Plug>(MarkdownToolsCapturePaste)
-    nmap <buffer> <leader>mfy <Plug>(MarkdownToolsPasteClipboard)
+    let l:new_path = input('New path: ', l:orig_path, 'file')
+    echo ' '
+    if empty(l:new_path) || l:orig_path == l:new_path
+        echo "Rename canceled."
+        return
+    endif
+    let l:new_dir = fnamemodify(l:new_path, ':h')
+    if !isdirectory(l:new_dir)
+        call mkdir(l:new_dir, 'p')
+    endif
+    if rename(l:orig_path, l:new_path) == 0
+        execute '%s#\V' . escape(l:orig_path, '/\.*$^~[]') . '#' . l:new_path . '#g'
+        echo "Renamed successfully."
+    else
+        echoerr "Failed to rename file."
+    endif
 endfunction
 
-" --- Autocommands ---
+function! s:CollectMatches(pattern, skip_http)
+    set re=1
+    let l:matches = []
+    for lnum in range(1, line('$'))
+        let line_text = getline(lnum)
+        let start = 0
+        while 1
+            let match = matchstrpos(line_text, a:pattern, start)
+            if empty(match[0]) | break | endif
+            let match_text = match[0]
+            let match_pos = match[1]
+            let end_pos = match[2]
+            if a:skip_http && match(match_text, '^https\?://') >= 0
+                let start = end_pos
+                continue
+            endif
+            call add(l:matches, {'filename': expand('%:p'), 'lnum': lnum, 'col': match_pos + 1, 'text': match_text})
+            let start = end_pos
+        endwhile
+    endfor
+    set re=0
+    if empty(l:matches)
+        echo "No matches found."
+    else
+        call setqflist(l:matches, 'r')
+        copen
+    endif
+endfunction
+
+function! MarkdownTools_FindWebsitesOnly()
+    call s:CollectMatches('\vhttps?:\/\/[a-zA-Z0-9._~@%+=:,/?#&$!*\-]+', 0)
+endfunction
+
+function! MarkdownTools_FindFilepathsOnly()
+    call s:CollectMatches('\v((\$[A-Z_][A-Z0-9_]*|~|\.{1,2})?\/)?([a-zA-Z0-9 ._@%+=:,~$!\-]+\/)+[a-zA-Z0-9 ._@%+=:,~$!\-]+\.[a-zA-Z0-9]+', 1)
+endfunction
+
+function! MarkdownTools_FindAllPathsAndWebsites()
+    call s:CollectMatches('\v(https?:\/\/[a-zA-Z0-9._~@%+=:,/?#&$!*\-]+)|((\$[A-Z_][A-Z0-9_]*|~|\.{1,2})?\/)?([a-zA-Z0-9 ._@%+=:,~$!\-]+\/)+[a-zA-Z0-9 ._@%+=:,~$!\-]+\.[a-zA-Z0-9]+', 0)
+endfunction
+
+function! MarkdownTools_CaptureAndPasteImage()
+    if expand('%:p') == ''
+        echoerr "Please save the file first to determine the directory path!"
+        return
+    endif
+    let l:current_dir = expand('%:p:h')
+    let l:fig_dir = l:current_dir . '/figures'
+    if !isdirectory(l:fig_dir) | call mkdir(l:fig_dir, 'p') | endif
+    let l:filename = strftime('%Y%m%d_%H%M%S') . '.png'
+    let l:filepath = l:fig_dir . '/' . l:filename
+    let l:relpath = 'figures/' . l:filename
+    call system('flameshot gui -r > ' . shellescape(l:filepath))
+    if getfsize(l:filepath) > 0
+        call inputsave()
+        let l:width = input('Enter width (e.g., 50%, 400px, or blank for 100%): ')
+        call inputrestore()
+        let l:width = empty(l:width) ? '100%' : l:width
+        execute "normal! a<img src=\"" . l:relpath . "\" width=\"" . l:width . "\" alt=\"Screenshot\">\n\<Esc>"
+        redraw | echo "Screenshot captured!"
+    else
+        call system('rm ' . shellescape(l:filepath))
+        redraw | echo "Screenshot canceled."
+    endif
+endfunction
+
+function! MarkdownTools_MoveNote()
+    update
+    let l:old_file = expand('%:p')
+    let l:old_dir = expand('%:p:h')
+    let l:old_figures = l:old_dir . '/figures'
+    call inputsave()
+    let l:new_file = input('Move note to: ', l:old_file, 'file')
+    call inputrestore()
+    if l:new_file == '' || l:new_file == l:old_file
+        redraw | echo "Move canceled." | return
+    endif
+    let l:new_file = fnamemodify(l:new_file, ':p')
+    let l:new_dir = fnamemodify(l:new_file, ':p:h')
+    let l:new_figures = l:new_dir . '/figures'
+    if !isdirectory(l:new_dir) | call mkdir(l:new_dir, 'p') | endif
+    call system('mv ' . shellescape(l:old_file) . ' ' . shellescape(l:new_file))
+    if isdirectory(l:old_figures)
+        if !isdirectory(l:new_figures)
+            call system('mv ' . shellescape(l:old_figures) . ' ' . shellescape(l:new_figures))
+        else
+            call system('cp -n ' . shellescape(l:old_figures) . '/* ' . shellescape(l:new_figures) . '/ && rm -rf ' . shellescape(l:old_figures))
+        endif
+    endif
+    execute 'edit ' . fnameescape(l:new_file)
+    execute 'bwipeout ' . fnameescape(l:old_file)
+    redraw | echo "Moved successfully to: " . l:new_dir
+endfunction
+
+" --- Autocommands & Filetype Specific Mappings ---
 
 augroup MarkdownToolsPlugin
+
     autocmd!
 
     " Template insertion
     if g:md_tools_use_template
-        autocmd BufNewFile *.md,*.markdown call markdown_tools#insert_template()
+        autocmd BufNewFile *.md call s:InsertMarkdownTemplate()
     endif
 
-    " Buffer setup
-    autocmd FileType markdown,wiki call s:OnMarkdownBuffer()
+    autocmd FileType markdown setlocal spell
+
+    " Mappings specific to Markdown
+    autocmd FileType markdown nnoremap <buffer> <leader>mo :exe '!'. g:md_tools_browser .' %:p &'<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mp :!marp % --html<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mP :exe '!'. g:md_tools_browser .' %:r.html &'<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>me :!pandoc % -f markdown -t html --data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --metadata=title:%:t:r --toc<space>
+    autocmd FileType markdown nnoremap <buffer> <leader>mE :exe '!'. g:md_tools_browser .' %:r.html &'<CR>
+
+    " Insertions
+    autocmd FileType markdown nnoremap <buffer> <leader>mi <Esc>i![this_is_an_image]()<Left>
+    autocmd FileType markdown nnoremap <buffer> <leader>mI <Esc>i<img src="" title="" width="100%" height="100%"/><Esc>38<Left>i
+    autocmd FileType markdown nnoremap <buffer> <leader>mV <Esc>i<video src="" title="" width="100%" height="100%" controls/><Esc>47<Left>i
+    autocmd FileType markdown nnoremap <buffer> <leader>ml <Esc>i[this_is_a_link]()<Left>
+    autocmd FileType markdown nnoremap <buffer> <leader>mb <Esc>i- [ ]
+    autocmd FileType markdown nnoremap <buffer> <leader>mB <Esc>i```<CR>```<Up>
+    autocmd FileType markdown nnoremap <buffer> <leader>mw <Esc>i::<Esc>i
+    autocmd FileType markdown nnoremap <buffer> <leader>mc <Esc>i<span style="color:"><Esc>F<<Esc>19<Right>i
+    autocmd FileType markdown nnoremap <buffer> <leader>mC <Esc>a</span><Esc>
+    autocmd FileType markdown nnoremap <buffer> <leader>mT :execute('r ' . g:md_tools_table_template)<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader><bar> :<Esc>i[^]<Left>
+
+    " Path Tools
+    autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfe" :call MarkdownTools_ToggleEnvPath('"')<CR>
+    autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfe' :call MarkdownTools_ToggleEnvPath("'")<CR>
+    autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfe( :call MarkdownTools_ToggleEnvPath('(')<CR>
+    autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfe) :call MarkdownTools_ToggleEnvPath('(')<CR>
+    autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfe` :call MarkdownTools_ToggleEnvPath('`')<CR>
+    autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfew :call MarkdownTools_ToggleEnvPath('W')<CR>
+
+    autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfa" :call MarkdownTools_ConvertRelativeToAbsolute('"')<CR>
+    autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfa' :call MarkdownTools_ConvertRelativeToAbsolute("'")<CR>
+    autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfa( :call MarkdownTools_ConvertRelativeToAbsolute('(')<CR>
+    autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfa) :call MarkdownTools_ConvertRelativeToAbsolute('(')<CR>
+    autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfa` :call MarkdownTools_ConvertRelativeToAbsolute('`')<CR>
+    autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfaw :call MarkdownTools_ConvertRelativeToAbsolute('W')<CR>
+
+    autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfr" :call MarkdownTools_ConvertAbsoluteToRelative('"')<CR>
+    autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfr' :call MarkdownTools_ConvertAbsoluteToRelative("'")<CR>
+    autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfr( :call MarkdownTools_ConvertAbsoluteToRelative('(')<CR>
+    autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfr) :call MarkdownTools_ConvertAbsoluteToRelative('(')<CR>
+    autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfr` :call MarkdownTools_ConvertAbsoluteToRelative('`')<CR>
+    autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfrw :call MarkdownTools_ConvertAbsoluteToRelative('W')<CR>
+
+    autocmd FileType markdown nnoremap <buffer> <leader>mfR :call MarkdownTools_RenameFilePath()<CR>
+    autocmd FileType markdown vnoremap <buffer> <leader>mfR :<C-u>call MarkdownTools_RenameFilePath()<CR>
+
+    " Search & Quickfix
+    autocmd FileType markdown nnoremap <buffer> <leader>mfA :call MarkdownTools_FindAllPathsAndWebsites()<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfw :call MarkdownTools_FindWebsitesOnly()<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mff :call MarkdownTools_FindFilepathsOnly()<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfh :lvimgrep /^#/ %<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfH :vimgrep /^#/ %<CR>
+
+    " Note/Image management
+    autocmd FileType markdown nnoremap <buffer> <leader>mfm :call MarkdownTools_MoveNote()<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfp :call MarkdownTools_CaptureAndPasteImage()<CR>
+
 augroup END
-
-function! s:OnMarkdownBuffer() abort
-    if g:md_tools_enable_spell
-        setlocal spell
-    endif
-    call s:ApplyDefaultMappings()
-endfunction

@@ -3,17 +3,14 @@
 
 ---
 
-# {{TITLE}}
+# Title
 
 - __Description:__
-- __Author:__ {{AUTHOR}}
-- __Contact:__ {{EMAIL}}
-- __Datetime:__ {{DATETIME}}
+- __Author:__ Kuan-Hsien Wu
+- __Contact:__ jordankhwu@gmail.com
+- __Datetime:__ YYYY-mm-DD HH:MM:SS
 
 ## Contents
-
-<!-- TOC -->
-<!-- /TOC -->
 
 # Context
 
