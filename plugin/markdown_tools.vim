@@ -268,13 +268,12 @@ function! MarkdownTools_FindAllPathsAndWebsites()
 endfunction
 
 function! MarkdownTools_LiveGrepVault()
-    " 1. Check if ripgrep is installed
     if !executable('rg')
         echoerr "ripgrep ('rg') is not installed or not in PATH."
         return
     endif
 
-    " 2. Determine Vimwiki Root Directory
+    " Determine Vimwiki Root Directory
     let l:wiki_root = ''
     if exists('g:vimwiki_list') && !empty(g:vimwiki_list)
         let l:wiki_root = expand(g:vimwiki_list[0].path)
@@ -288,32 +287,39 @@ function! MarkdownTools_LiveGrepVault()
         return
     endif
 
-    " 3. Preview command setup (bat if available, else cat)
+    " Preview command setup
     let l:preview_cmd = executable('bat')
         \ ? 'bat --style=grid --color=always --highlight-line {2} {1}'
         \ : 'cat {1}'
 
-    " 4. Construct rg command using systemlist to avoid shell-escaping/string bugs
-    " --no-ignore ensures gitignored diary folders are searched
-    " --hidden ensures hidden directories/files are included
-    let l:rg_cmd = printf('rg --column --line-number --no-heading --color=always --smart-case --no-ignore --hidden -g "*.md" . %s', shellescape(l:wiki_root))
+    " Construct rg command targeting file CONTENTS only
+    " '^' forces matching on line content start rather than path matching
+    let l:rg_cmd = printf('rg --column --line-number --no-heading --color=always --smart-case --no-ignore --hidden -g "*.md" -e "^" %s', shellescape(l:wiki_root))
 
-    " 5. Define sink function for selection
-    function! s:OnGrepSelected(val) closure
-        if empty(a:val) | return | endif
-        let l:parts = split(a:val[0], ':')
-        if len(l:parts) >= 2
-            let l:file = l:parts[0]
-            let l:line = l:parts[1]
-            execute 'edit +' . l:line . ' ' . fnameescape(l:file)
+    " Multi-selection handler: iterates over all selected items
+    function! s:OnGrepSelected(lines) closure
+        if empty(a:lines) | return | endif
+
+        " Open the first selected file in current window
+        let l:first = split(a:lines[0], ':')
+        if len(l:first) >= 2
+            execute 'edit +' . l:first[1] . ' ' . fnameescape(l:first[0])
         endif
+
+        " Open any additional selected files in background buffers
+        for l:item in a:lines[1:]
+            let l:parts = split(l:item, ':')
+            if len(l:parts) >= 2
+                execute 'badd +' . l:parts[1] . ' ' . fnameescape(l:parts[0])
+            endif
+        endfor
     endfunction
 
-    " 6. Run FZF
-    call fzf#run(fzf#wrap({
+    " Run FZF using global g:fzf_layout rules with multi-select enabled
+    call fzf#run(fzf#wrap('LiveGrepVault', {
         \ 'source':  l:rg_cmd,
         \ 'sink*':   function('s:OnGrepSelected'),
-        \ 'options': ['--ansi', '--prompt', 'Vault Grep> ', '--delimiter', ':', '--preview', l:preview_cmd, '--preview-window', 'right:60%'],
+        \ 'options': ['-m', '--ansi', '--prompt', 'Vault Grep> ', '--delimiter', ':', '--preview', l:preview_cmd, '--preview-window', 'right:60%'],
         \ }))
 endfunction
 
