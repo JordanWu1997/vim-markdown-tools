@@ -73,6 +73,7 @@ All mappings are local to `markdown` filetypes and typically use `<leader>` as t
 
 | **Search & Navigation** |                  **Action**                   |
 | :---------------------: | :-------------------------------------------: |
+|      `<leader>mfg`      |           Grep all files in vimwiki           |
 |      `<leader>mfb`      | Find all backlinks to current file (Quickfix) |
 |      `<leader>mfo`      | Find all outlinks to current file (Quickfix)  |
 |      `<leader>mfA`      |    Find all paths and websites (Quickfix)     |

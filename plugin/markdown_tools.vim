@@ -223,8 +223,6 @@ function! MarkdownTools_InsertWikiLink()
     call fzf#run(fzf#wrap({
         \ 'source':  globpath(l:wiki_root, '**/*.md', 0, 1),
         \ 'sink*':   function('s:OnWikiLinkSelected'),
-        \ 'options': ['--prompt', 'Link Note> ', '--preview', l:preview_cmd, '--preview-window', 'right:60%'],
-        \ 'down':    '40%'
         \ }))
 endfunction
 
@@ -267,6 +265,56 @@ endfunction
 
 function! MarkdownTools_FindAllPathsAndWebsites()
     call s:CollectMatches('\v(https?:\/\/[a-zA-Z0-9._~@%+=:,/?#&$!*\-]+)|((\$[A-Z_][A-Z0-9_]*|~|\.{1,2})?\/)?([a-zA-Z0-9 ._@%+=:,~$!\-]+\/)+[a-zA-Z0-9 ._@%+=:,~$!\-]+\.[a-zA-Z0-9]+', 0)
+endfunction
+
+function! MarkdownTools_LiveGrepVault()
+    " 1. Check if ripgrep is installed
+    if !executable('rg')
+        echoerr "ripgrep ('rg') is not installed or not in PATH."
+        return
+    endif
+
+    " 2. Determine Vimwiki Root Directory
+    let l:wiki_root = ''
+    if exists('g:vimwiki_list') && !empty(g:vimwiki_list)
+        let l:wiki_root = expand(g:vimwiki_list[0].path)
+    else
+        let l:index_file = findfile('index.md', expand('%:p:h') . ';')
+        let l:wiki_root = !empty(l:index_file) ? fnamemodify(l:index_file, ':p:h') : expand('%:p:h')
+    endif
+
+    if !isdirectory(l:wiki_root)
+        echoerr "Wiki root directory does not exist: " . l:wiki_root
+        return
+    endif
+
+    " 3. Preview command setup (bat if available, else cat)
+    let l:preview_cmd = executable('bat')
+        \ ? 'bat --style=grid --color=always --highlight-line {2} {1}'
+        \ : 'cat {1}'
+
+    " 4. Construct rg command using systemlist to avoid shell-escaping/string bugs
+    " --no-ignore ensures gitignored diary folders are searched
+    " --hidden ensures hidden directories/files are included
+    let l:rg_cmd = printf('rg --column --line-number --no-heading --color=always --smart-case --no-ignore --hidden -g "*.md" . %s', shellescape(l:wiki_root))
+
+    " 5. Define sink function for selection
+    function! s:OnGrepSelected(val) closure
+        if empty(a:val) | return | endif
+        let l:parts = split(a:val[0], ':')
+        if len(l:parts) >= 2
+            let l:file = l:parts[0]
+            let l:line = l:parts[1]
+            execute 'edit +' . l:line . ' ' . fnameescape(l:file)
+        endif
+    endfunction
+
+    " 6. Run FZF
+    call fzf#run(fzf#wrap({
+        \ 'source':  l:rg_cmd,
+        \ 'sink*':   function('s:OnGrepSelected'),
+        \ 'options': ['--ansi', '--prompt', 'Vault Grep> ', '--delimiter', ':', '--preview', l:preview_cmd, '--preview-window', 'right:60%'],
+        \ }))
 endfunction
 
 function! MarkdownTools_CaptureAndPasteImage()
@@ -511,6 +559,7 @@ augroup MarkdownToolsPlugin
     autocmd FileType markdown nnoremap <buffer> <leader>mfo :call MarkdownTools_FindOutlinks()<CR>
 
     " Search & Quickfix
+    autocmd FileType markdown nnoremap <buffer> <leader>mfg :call MarkdownTools_LiveGrepVault()<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mfA :call MarkdownTools_FindAllPathsAndWebsites()<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mfw :call MarkdownTools_FindWebsitesOnly()<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mff :call MarkdownTools_FindFilepathsOnly()<CR>
