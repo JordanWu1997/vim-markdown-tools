@@ -29,7 +29,7 @@ Plug 'JordanWu1997/vim-markdown-tools'
   - Toggle between absolute paths and `$HOME`-prefixed paths.
   - Convert between absolute and relative paths on the fly.
   - Rename files/directories under the cursor and update the reference in the current buffer.
-- **📂 Smart Note Moving**: Move a Markdown file to a new location, and the plugin will automatically migrate its associated `./figures` directory.
+  - Localize resources for associated file migration (like `../figures` to `./figures`)
 - **👁️ Preview & Export**:
   - Instant preview in your default browser.
   - Export to HTML using Pandoc with Bootstrap templates.
@@ -63,13 +63,14 @@ All mappings are local to `markdown` filetypes and typically use `<leader>` as t
 |  `<leader>mT`  |       Insert HTML table template       |
 |  `<leader>\|`  |   Insert Pandoc-style footnote `[^]`   |
 
-|   **Path Tools**    |                               **Action**                               |
-| :-----------------: | :--------------------------------------------------------------------: |
-| `<leader>mfe{char}` | Toggle Env Path (expand/collapse `$HOME`) for path wrapped in `{char}` |
-| `<leader>mfa{char}` |         Convert path to Absolute for path wrapped in `{char}`          |
-| `<leader>mfr{char}` |         Convert path to Relative for path wrapped in `{char}`          |
-|    `<leader>mfR`    |  Rename file path under cursor and update buffer (work for all files)  |
-|    `<leader>mfI`    |        Insert markdown file path using fuzzy matching file name        |
+|   **Path Tools**    |                                 **Action**                                 |
+| :-----------------: | :------------------------------------------------------------------------: |
+| `<leader>mfe{char}` |   Toggle Env Path (expand/collapse `$HOME`) for path wrapped in `{char}`   |
+| `<leader>mfa{char}` |           Convert path to Absolute for path wrapped in `{char}`            |
+| `<leader>mfr{char}` |           Convert path to Relative for path wrapped in `{char}`            |
+|    `<leader>mfR`    |    Rename file path under cursor and update buffer (work for all files)    |
+|    `<leader>mfL`    | Localize resources path (all outlinks contains `figures/` in current file) |
+|    `<leader>mfI`    |          Insert markdown file path using fuzzy matching file name          |
 
 | **Search & Navigation** |                  **Action**                   |
 | :---------------------: | :-------------------------------------------: |
@@ -82,10 +83,9 @@ All mappings are local to `markdown` filetypes and typically use `<leader>` as t
 |      `<leader>mfh`      |         Find headers (Location list)          |
 |      `<leader>mfH`      |         Find headers (Quickfix list)          |
 
-| **Management** |                  **Action**                  |
-| :------------: | :------------------------------------------: |
-| `<leader>mfm`  | Move current note and its `./figures` folder |
-| `<leader>mfp`  |   Capture and paste screenshot (Flameshot)   |
+| **Management** |                **Action**                |
+| :------------: | :--------------------------------------: |
+| `<leader>mfp`  | Capture and paste screenshot (Flameshot) |
 
 *Note: For path tools, `{char}` can be `"`, `'`, `(`, `)`, `` ` ``, or `w` (for word).*
 

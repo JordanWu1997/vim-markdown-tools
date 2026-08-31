@@ -37,8 +37,12 @@ let g:md_tools_browser = get(g:, 'md_tools_browser', $BROWSER)
 let g:md_tools_use_template = get(g:, 'md_tools_use_template', 1)
 
 " --- Helper Functions ---
+"
+" ============================================================================
+" Template
+" ============================================================================
 
-function! s:InsertMarkdownTemplate() abort
+function! s:MarkdownTools_InsertMarkdownTemplate() abort
     if line('$') == 1 && empty(getline(1))
         let l:template = g:md_tools_template_dir . 'markdown_template.md'
         if filereadable(l:template)
@@ -47,6 +51,10 @@ function! s:InsertMarkdownTemplate() abort
         endif
     endif
 endfunction
+
+" ============================================================================
+" Path
+" ============================================================================
 
 function! MarkdownTools_ToggleEnvPath(char)
     let l:word = expand('<cfile>')
@@ -123,7 +131,44 @@ function! MarkdownTools_RenameFilePath()
         return
     endif
 
-    " 5. Scan and update all Markdown files referencing this media asset or note
+    " 5. Update Outlinks INSIDE the moved file
+    if l:new_path =~? '\.md$' && filereadable(l:new_path)
+        let l:moved_lines = readfile(l:new_path)
+        let l:outlinks_modified = 0
+        let l:outlink_patterns = ['\v\]\(([^)''"]+)\)', '\vsrc\=["'']([^"''\>]+)["'']']
+
+        for l:idx in range(len(l:moved_lines))
+            let l:line = l:moved_lines[l:idx]
+            for l:pat in l:outlink_patterns
+                let l:start = 0
+                while 1
+                    let l:match = matchstrpos(l:line, l:pat, l:start)
+                    if empty(l:match[0]) | break | endif
+
+                    let l:raw_link = matchlist(l:match[0], l:pat)[1]
+                    " Ignore absolute paths, web URLs, and anchor links
+                    if l:raw_link !~# '\v^(/|http[s]?://|#)'
+                        let l:old_abs = simplify(l:old_dir . '/' . l:raw_link)
+                        " Calculate new relative path based on the new directory
+                        let l:new_rel = trim(system(printf('realpath -s --relative-to=%s %s', shellescape(l:new_dir), shellescape(l:old_abs))))
+
+                        if l:raw_link !=# l:new_rel
+                            let l:line = substitute(l:line, '\V' . escape(l:raw_link, '/\.*$^~[]'), escape(l:new_rel, '\&~'), 'g')
+                            let l:outlinks_modified = 1
+                        endif
+                    endif
+                    let l:start = l:match[2]
+                endwhile
+            endfor
+            let l:moved_lines[l:idx] = l:line
+        endfor
+
+        if l:outlinks_modified
+            call writefile(l:moved_lines, l:new_path)
+        endif
+    endif
+
+    " 6. Scan and update backlinks across Vimwiki
     let l:wiki_files = glob(l:wiki_root . '/**/*.md', 0, 1)
     let l:old_filename = fnamemodify(l:target_file, ':t')
     let l:new_filename = fnamemodify(l:new_path, ':t')
@@ -131,7 +176,8 @@ function! MarkdownTools_RenameFilePath()
 
     for l:file in l:wiki_files
         let l:file_abs = fnamemodify(l:file, ':p')
-        if !filereadable(l:file_abs) | continue | endif
+        " Skip the newly moved file to avoid double-processing
+        if !filereadable(l:file_abs) || l:file_abs ==# l:new_path | continue | endif
 
         let l:note_dir = fnamemodify(l:file_abs, ':p:h')
         let l:lines = readfile(l:file_abs)
@@ -146,8 +192,8 @@ function! MarkdownTools_RenameFilePath()
 
             " Pattern A: Standard Markdown Image ![](...) or Link [](...)
             if l:line =~# escape(l:old_rel_path, '/\.*$^~[]') || l:line =~# escape(l:old_filename, '/\.*$^~[]')
-                let l:line = substitute(l:line, '\V' . escape(l:old_rel_path, '/\.*$^~[]'), l:new_rel_path, 'g')
-                let l:line = substitute(l:line, '\V' . escape(l:old_filename, '/\.*$^~[]'), l:new_rel_path, 'g')
+                let l:line = substitute(l:line, '\V' . escape(l:old_rel_path, '/\.*$^~[]'), escape(l:new_rel_path, '\&~'), 'g')
+                let l:line = substitute(l:line, '\V' . escape(l:old_filename, '/\.*$^~[]'), escape(l:new_rel_path, '\&~'), 'g')
                 let l:lines[l:idx] = l:line
                 let l:modified = 1
             endif
@@ -163,7 +209,7 @@ function! MarkdownTools_RenameFilePath()
                     let l:src_val = matchlist(l:match[0], l:html_src_pattern)[2]
                     " Check if HTML src points to our target image
                     if fnamemodify(l:src_val, ':t') == l:old_filename || l:src_val == l:old_rel_path
-                        let l:line = substitute(l:line, '\V' . escape(l:src_val, '/\.*$^~[]'), l:new_rel_path, 'g')
+                        let l:line = substitute(l:line, '\V' . escape(l:src_val, '/\.*$^~[]'), escape(l:new_rel_path, '\&~'), 'g')
                         let l:lines[l:idx] = l:line
                         let l:modified = 1
                     endif
@@ -178,14 +224,200 @@ function! MarkdownTools_RenameFilePath()
         endif
     endfor
 
-    " 6. Synchronize active Vim buffer if we renamed the current file
+    " 7. Synchronize active Vim buffer
     if expand('%:p') == l:target_file
+        execute 'bwipeout! ' . fnameescape(l:target_file)
         execute 'edit ' . fnameescape(l:new_path)
-        execute 'bwipeout ' . fnameescape(l:target_file)
     endif
     checktime
 
     redraw | echo printf("Target renamed successfully. Updated references across %d file(s).", l:updated_files_count)
+endfunction
+
+function! MarkdownTools_LocalizeResources(...)
+    let l:target_dirs = a:0 > 0 ? a:000 : ['figures', 'assets', 'media', 'images']
+    let l:current_file = expand('%:p')
+    if empty(l:current_file) || !filereadable(l:current_file)
+        echoerr "Please save the file first."
+        return
+    endif
+
+    let l:current_dir = expand('%:p:h')
+    let l:local_fig_dir = l:current_dir . '/figures'
+    if !isdirectory(l:local_fig_dir)
+        call mkdir(l:local_fig_dir, 'p')
+    endif
+
+    let l:lines = getline(1, '$')
+    let l:modified = 0
+    let l:copied_count = 0
+
+    let l:dir_pattern = '\v[^ ()"''\]>]*(' . join(l:target_dirs, '|') . ')\/[^ )"''\]>]+'
+
+    for l:idx in range(len(l:lines))
+        let l:line = l:lines[l:idx]
+        let l:start = 0
+
+        while 1
+            let l:match = matchstrpos(l:line, l:dir_pattern, l:start)
+            if empty(l:match[0]) | break | endif
+
+            " src_rel_path now correctly holds the full matched string (e.g., ../figures/image.png)
+            let l:src_rel_path = l:match[0]
+            let l:fig_name = fnamemodify(l:src_rel_path, ':t')
+
+            " Resolve the actual absolute path to the file
+            let l:src_abs_path = simplify(l:current_dir . '/' . l:src_rel_path)
+            let l:dst_abs_path = l:local_fig_dir . '/' . l:fig_name
+            let l:new_rel_path = 'figures/' . l:fig_name
+
+            if filereadable(l:src_abs_path) && l:src_rel_path !=# l:new_rel_path
+                if !filereadable(l:dst_abs_path)
+                    let l:data = readfile(l:src_abs_path, 'b')
+                    call writefile(l:data, l:dst_abs_path, 'b')
+                    let l:copied_count += 1
+                endif
+
+                let l:line = substitute(l:line, '\V' . escape(l:src_rel_path, '/\.*$^~[]'), escape(l:new_rel_path, '\&~'), 'g')
+                let l:lines[l:idx] = l:line
+                let l:modified = 1
+            endif
+
+            let l:start = l:match[2]
+        endwhile
+    endfor
+
+    if l:modified
+        call setline(1, l:lines)
+        update
+        redraw | echo printf("Localized %d resource(s) into %s", l:copied_count, l:local_fig_dir)
+    else
+        redraw | echo "No external resources needed localization."
+    endif
+endfunction
+
+" ============================================================================
+" Link
+" ============================================================================
+
+function! MarkdownTools_CaptureAndPasteImage()
+    if expand('%:p') == ''
+        echoerr "Please save the file first to determine the directory path!"
+        return
+    endif
+    let l:current_dir = expand('%:p:h')
+    let l:fig_dir = l:current_dir . '/figures'
+    if !isdirectory(l:fig_dir) | call mkdir(l:fig_dir, 'p') | endif
+    let l:filename = strftime('%Y%m%d_%H%M%S') . '.png'
+    let l:filepath = l:fig_dir . '/' . l:filename
+    let l:relpath = 'figures/' . l:filename
+    call system('flameshot gui -r > ' . shellescape(l:filepath))
+    if getfsize(l:filepath) > 0
+        call inputsave()
+        let l:width = input('Enter width (e.g., 50%, 400px, or blank for 100%): ')
+        call inputrestore()
+        let l:width = empty(l:width) ? '100%' : l:width
+        execute "normal! a<img src=\"" . l:relpath . "\" width=\"" . l:width . "\" alt=\"Screenshot\">\n\<Esc>"
+        redraw | echo "Screenshot captured!"
+    else
+        call system('rm ' . shellescape(l:filepath))
+        redraw | echo "Screenshot canceled."
+    endif
+endfunction
+
+" Obsidian-Style Link & Backlink Discovery Tools for Vimwiki
+function! MarkdownTools_FindBacklinks()
+    let l:current_file = expand('%:p')
+    if empty(l:current_file)
+        echoerr "Please save or open a valid file first."
+        return
+    endif
+
+    let l:filename = expand('%:t')
+    let l:filename_no_ext = expand('%:t:r')
+
+    " Determine Vimwiki root directory
+    let l:wiki_root = ''
+    if exists('g:vimwiki_list') && !empty(g:vimwiki_list)
+        let l:wiki_root = expand(g:vimwiki_list[0].path)
+    else
+        let l:index_file = findfile('index.md', expand('%:p:h') . ';')
+        let l:wiki_root = !empty(l:index_file) ? fnamemodify(l:index_file, ':p:h') : expand('%:p:h')
+    endif
+
+    " Get relative path from wiki root
+    let l:rel_path = fnamemodify(l:current_file, ':.' )
+
+    " Pattern matches: [text](filename.md), [text](rel/path.md), or [[filename]]
+    let l:pattern = '\V\(' . escape(l:filename, '\') . '\|' . escape(l:rel_path, '\') . '\|\[\[' . escape(l:filename_no_ext, '\') . '\]\]\)'
+
+    let l:wiki_files = glob(l:wiki_root . '/**/*.md', 0, 1)
+    let l:matches = []
+
+    for l:file in l:wiki_files
+        " Skip self-referencing links within the current file
+        if fnamemodify(l:file, ':p') == l:current_file
+            continue
+        endif
+
+        if filereadable(l:file)
+            let l:lines = readfile(l:file)
+            for l:idx in range(len(l:lines))
+                let l:line = l:lines[l:idx]
+                if l:line =~# l:pattern
+                    call add(l:matches, {
+                        \ 'filename': l:file,
+                        \ 'lnum': l:idx + 1,
+                        \ 'text': trim(l:line)
+                        \ })
+                endif
+            endfor
+        endif
+    endfor
+
+    if empty(l:matches)
+        redraw | echo "No backlinks found for: " . l:filename
+    else
+        call setqflist(l:matches, 'r')
+        call setqflist([], 'r', {'title': 'Backlinks to ' . l:filename})
+        copen
+        redraw | echo printf("Found %d backlink(s).", len(l:matches))
+    endif
+endfunction
+
+" Obsidian-Style Link & Backlink Discovery Tools for Vimwiki
+function! MarkdownTools_FindOutlinks()
+    let l:matches = []
+    let l:current_file = expand('%:p')
+
+    " Regex matches standard Markdown links [text](path) and Wiki links [[path]]
+    let l:link_pattern = '\v\[[^\]]+\]\(([^)]+)\)|\[\[([^\]]+)\]\]'
+
+    for l:lnum in range(1, line('$'))
+        let l:line_text = getline(l:lnum)
+        let l:start = 0
+        while 1
+            let l:match = matchstrpos(l:line_text, l:link_pattern, l:start)
+            if empty(l:match[0]) | break | endif
+
+            call add(l:matches, {
+                \ 'filename': l:current_file,
+                \ 'lnum': l:lnum,
+                \ 'col': l:match[1] + 1,
+                \ 'text': l:match[0]
+                \ })
+            let l:start = l:match[2]
+        endwhile
+    endfor
+
+    if empty(l:matches)
+        redraw | echo "No outgoing links found in this note."
+    else
+        call setqflist(l:matches, 'r')
+        call setqflist([], 'r', {'title': 'Outgoing Links in ' . expand('%:t')})
+        copen
+        redraw | echo printf("Found %d outgoing link(s).", len(l:matches))
+    endif
 endfunction
 
 function! MarkdownTools_InsertWikiLink()
@@ -225,6 +457,10 @@ function! MarkdownTools_InsertWikiLink()
         \ 'sink*':   function('s:OnWikiLinkSelected'),
         \ }))
 endfunction
+
+" ============================================================================
+" Collect Matches
+" ============================================================================
 
 function! s:CollectMatches(pattern, skip_http)
     set re=1
@@ -323,183 +559,6 @@ function! MarkdownTools_LiveGrepVault()
         \ }))
 endfunction
 
-function! MarkdownTools_CaptureAndPasteImage()
-    if expand('%:p') == ''
-        echoerr "Please save the file first to determine the directory path!"
-        return
-    endif
-    let l:current_dir = expand('%:p:h')
-    let l:fig_dir = l:current_dir . '/figures'
-    if !isdirectory(l:fig_dir) | call mkdir(l:fig_dir, 'p') | endif
-    let l:filename = strftime('%Y%m%d_%H%M%S') . '.png'
-    let l:filepath = l:fig_dir . '/' . l:filename
-    let l:relpath = 'figures/' . l:filename
-    call system('flameshot gui -r > ' . shellescape(l:filepath))
-    if getfsize(l:filepath) > 0
-        call inputsave()
-        let l:width = input('Enter width (e.g., 50%, 400px, or blank for 100%): ')
-        call inputrestore()
-        let l:width = empty(l:width) ? '100%' : l:width
-        execute "normal! a<img src=\"" . l:relpath . "\" width=\"" . l:width . "\" alt=\"Screenshot\">\n\<Esc>"
-        redraw | echo "Screenshot captured!"
-    else
-        call system('rm ' . shellescape(l:filepath))
-        redraw | echo "Screenshot canceled."
-    endif
-endfunction
-
-function! MarkdownTools_MoveNote()
-    update
-    let l:old_file = expand('%:p')
-    let l:old_dir = expand('%:p:h')
-    let l:old_figures = l:old_dir . '/figures'
-
-    call inputsave()
-    let l:new_file = input('Move note to: ', l:old_file, 'file')
-    call inputrestore()
-
-    if l:new_file == '' || l:new_file == l:old_file
-        redraw | echo "Move canceled." | return
-    endif
-
-    let l:new_file = fnamemodify(l:new_file, ':p')
-    let l:new_dir = fnamemodify(l:new_file, ':p:h')
-    let l:new_figures = l:new_dir . '/figures'
-
-    " 1. Extract all referenced figures in the buffer
-    let l:related_figures = []
-    for lnum in range(1, line('$'))
-        let l:line_text = getline(lnum)
-        let l:start = 0
-        while 1
-            let l:match = matchstrpos(l:line_text, 'figures\/[^ )"''\]>]\+', l:start)
-            if empty(l:match[0]) | break | endif
-            let l:fig_name = fnamemodify(l:match[0], ':t')
-            call add(l:related_figures, l:fig_name)
-            let l:start = l:match[2]
-        endwhile
-    endfor
-    let l:related_figures = uniq(sort(l:related_figures))
-
-    " 2. Copy only referenced figures to the new figures directory
-    if isdirectory(l:old_figures) && !empty(l:related_figures)
-        if !isdirectory(l:new_figures)
-            call mkdir(l:new_figures, 'p')
-        endif
-        for l:fig in l:related_figures
-            let l:src_fig = l:old_figures . '/' . l:fig
-            let l:dst_fig = l:new_figures . '/' . l:fig
-            if filereadable(l:src_fig) && !filereadable(l:dst_fig)
-                let l:data = readfile(l:src_fig, 'b')
-                call writefile(l:data, l:dst_fig, 'b')
-            endif
-        endfor
-    endif
-
-    " 3. Ensure target directory exists and move the Markdown note file
-    if !isdirectory(l:new_dir) | call mkdir(l:new_dir, 'p') | endif
-    call rename(l:old_file, l:new_file)
-
-    " 4. Update Vim buffer references
-    execute 'edit ' . fnameescape(l:new_file)
-    execute 'bwipeout ' . fnameescape(l:old_file)
-    redraw | echo "Moved successfully to: " . l:new_dir
-endfunction
-
-" Obsidian-Style Link & Backlink Discovery Tools for Vimwiki
-function! MarkdownTools_FindBacklinks()
-    let l:current_file = expand('%:p')
-    if empty(l:current_file)
-        echoerr "Please save or open a valid file first."
-        return
-    endif
-
-    let l:filename = expand('%:t')
-    let l:filename_no_ext = expand('%:t:r')
-
-    " Determine Vimwiki root directory
-    let l:wiki_root = ''
-    if exists('g:vimwiki_list') && !empty(g:vimwiki_list)
-        let l:wiki_root = expand(g:vimwiki_list[0].path)
-    else
-        let l:index_file = findfile('index.md', expand('%:p:h') . ';')
-        let l:wiki_root = !empty(l:index_file) ? fnamemodify(l:index_file, ':p:h') : expand('%:p:h')
-    endif
-
-    " Get relative path from wiki root
-    let l:rel_path = fnamemodify(l:current_file, ':.' )
-
-    " Pattern matches: [text](filename.md), [text](rel/path.md), or [[filename]]
-    let l:pattern = '\V\(' . escape(l:filename, '\') . '\|' . escape(l:rel_path, '\') . '\|\[\[' . escape(l:filename_no_ext, '\') . '\]\]\)'
-
-    let l:wiki_files = glob(l:wiki_root . '/**/*.md', 0, 1)
-    let l:matches = []
-
-    for l:file in l:wiki_files
-        " Skip self-referencing links within the current file
-        if fnamemodify(l:file, ':p') == l:current_file
-            continue
-        endif
-
-        if filereadable(l:file)
-            let l:lines = readfile(l:file)
-            for l:idx in range(len(l:lines))
-                let l:line = l:lines[l:idx]
-                if l:line =~# l:pattern
-                    call add(l:matches, {
-                        \ 'filename': l:file,
-                        \ 'lnum': l:idx + 1,
-                        \ 'text': trim(l:line)
-                        \ })
-                endif
-            endfor
-        endif
-    endfor
-
-    if empty(l:matches)
-        redraw | echo "No backlinks found for: " . l:filename
-    else
-        call setqflist(l:matches, 'r')
-        call setqflist([], 'r', {'title': 'Backlinks to ' . l:filename})
-        copen
-        redraw | echo printf("Found %d backlink(s).", len(l:matches))
-    endif
-endfunction
-
-" Obsidian-Style Link & Backlink Discovery Tools for Vimwiki
-function! MarkdownTools_FindOutlinks()
-    let l:matches = []
-    let l:current_file = expand('%:p')
-
-    " Regex matches standard Markdown links [text](path) and Wiki links [[path]]
-    let l:link_pattern = '\v\[[^\]]+\]\(([^)]+)\)|\[\[([^\]]+)\]\]'
-
-    for l:lnum in range(1, line('$'))
-        let l:line_text = getline(l:lnum)
-        let l:start = 0
-        while 1
-            let l:match = matchstrpos(l:line_text, l:link_pattern, l:start)
-            if empty(l:match[0]) | break | endif
-
-            call add(l:matches, {
-                \ 'filename': l:current_file,
-                \ 'lnum': l:lnum,
-                \ 'col': l:match[1] + 1,
-                \ 'text': l:match[0]
-                \ })
-            let l:start = l:match[2]
-        endwhile
-    endfor
-
-    if empty(l:matches)
-        redraw | echo "No outgoing links found in this note."
-    else
-        call setqflist(l:matches, 'r')
-        call setqflist([], 'r', {'title': 'Outgoing Links in ' . expand('%:t')})
-        copen
-        redraw | echo printf("Found %d outgoing link(s).", len(l:matches))
-    endif
-endfunction
 
 " --- Autocommands & Filetype Specific Mappings ---
 
@@ -509,7 +568,7 @@ augroup MarkdownToolsPlugin
 
     " Template insertion
     if g:md_tools_use_template
-        autocmd BufNewFile *.md call s:InsertMarkdownTemplate()
+        autocmd BufNewFile *.md call s:MarkdownTools_InsertMarkdownTemplate()
     endif
 
     autocmd FileType markdown setlocal spell
@@ -556,9 +615,11 @@ augroup MarkdownToolsPlugin
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfr` :call MarkdownTools_ConvertAbsoluteToRelative('`')<CR>
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfrw :call MarkdownTools_ConvertAbsoluteToRelative('W')<CR>
 
+    " File migration flow (file, link, resources)
     autocmd FileType markdown nnoremap <buffer> <leader>mfR :call MarkdownTools_RenameFilePath()<CR>
     autocmd FileType markdown vnoremap <buffer> <leader>mfR :<C-u>call MarkdownTools_RenameFilePath()<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mfI :call MarkdownTools_InsertWikiLink()<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfL :call MarkdownTools_LocalizeResources()<CR>
 
     " Obsidian-Style Link & Backlink Discovery Tools for Vimwiki
     autocmd FileType markdown nnoremap <buffer> <leader>mfb :call MarkdownTools_FindBacklinks()<CR>
@@ -573,7 +634,6 @@ augroup MarkdownToolsPlugin
     autocmd FileType markdown nnoremap <buffer> <leader>mfH :vimgrep /^#/ %<CR>
 
     " Note/Image management
-    autocmd FileType markdown nnoremap <buffer> <leader>mfm :call MarkdownTools_MoveNote()<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mfp :call MarkdownTools_CaptureAndPasteImage()<CR>
 
 augroup END
