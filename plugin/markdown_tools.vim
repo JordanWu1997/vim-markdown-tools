@@ -39,10 +39,10 @@ let g:md_tools_use_template = get(g:, 'md_tools_use_template', 1)
 " --- Helper Functions ---
 "
 " ============================================================================
-" Template
+" Auto-load
 " ============================================================================
 
-function! s:MarkdownTools_InsertMarkdownTemplate() abort
+function! s:MarkdownTools_LoadMarkdownTemplate() abort
     if line('$') == 1 && empty(getline(1))
         let l:template = g:md_tools_template_dir . 'markdown_template.md'
         if filereadable(l:template)
@@ -559,19 +559,63 @@ function! MarkdownTools_LiveGrepVault()
         \ }))
 endfunction
 
+" ============================================================================
+" Templates
+" ============================================================================
 
+" Function to read and insert the selected template
+function! s:ReadSelectedTemplate(template_dict, template_name) abort
+    let l:template_path = a:template_dict[a:template_name]
+    let l:template_content = readfile(l:template_path)
+    " Insert template content at cursor position
+    call append(line('.') - 1, l:template_content)
+endfunction
+
+" Function to list and select templates using fzf
+function! MarkdownTools_InsertMarkdownTemplate() abort
+    " Check if template directory exists
+    if !isdirectory(g:WIKI_TEMPLATE_DIR)
+        echoerr "Template directory doesn't exist: " . g:WIKI_TEMPLATE_DIR
+        return
+    endif
+    " Get list of template files
+    let l:templates = split(globpath(g:WIKI_TEMPLATE_DIR, '*.md'), '\n')
+    " Extract template names for display
+    let l:template_names = map(copy(l:templates), 'fnamemodify(v:val, ":t:r")')
+    " Create dictionary mapping display names to full paths
+    let l:template_dict = {}
+    let l:index = 0
+    while l:index < len(l:templates)
+        let l:template_dict[l:template_names[l:index]] = l:templates[l:index]
+        let l:index += 1
+    endwhile
+    " Show selection menu using fzf
+    call fzf#run({
+        \ 'source': l:template_names,
+        \ 'sink': function('s:ReadSelectedTemplate', [l:template_dict]),
+        \ 'down': '25%'
+        \ })
+endfunction
+
+" ============================================================================
 " --- Autocommands & Filetype Specific Mappings ---
+" ============================================================================
 
 augroup MarkdownToolsPlugin
 
     autocmd!
 
-    " Template insertion
+    " Template insertion (auto-load)
     if g:md_tools_use_template
-        autocmd BufNewFile *.md call s:MarkdownTools_InsertMarkdownTemplate()
+        autocmd BufNewFile *.md call s:MarkdownTools_LoadMarkdownTemplate()
     endif
 
+    " Setup spell checking
     autocmd FileType markdown setlocal spell
+
+    " Insert template and update datetime
+    autocmd FileType markdown nnoremap <buffer> <Leader>mfI :call MarkdownTools_InsertMarkdownTemplate()<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfd <Esc>:keeppatterns %s/YYYY-mm-DD HH:MM:SS/\=strftime("%Y-%m-%d %T")/g<CR>
 
     " Mappings specific to Markdown
     autocmd FileType markdown nnoremap <buffer> <leader>mo :exe '!'. g:md_tools_browser .' %:p &'<CR>
@@ -592,8 +636,9 @@ augroup MarkdownToolsPlugin
     autocmd FileType markdown nnoremap <buffer> <leader>mC <Esc>a</span><Esc>
     autocmd FileType markdown nnoremap <buffer> <leader>mT :execute('r ' . g:md_tools_table_template)<CR>
     autocmd FileType markdown nnoremap <buffer> <leader><bar> :<Esc>i[^]<Left>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfi :call MarkdownTools_InsertWikiLink()<CR>
 
-    " Path Tools
+    " Path Tools (Env)
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfe" :call MarkdownTools_ToggleEnvPath('"')<CR>
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfe' :call MarkdownTools_ToggleEnvPath("'")<CR>
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfe( :call MarkdownTools_ToggleEnvPath('(')<CR>
@@ -601,6 +646,7 @@ augroup MarkdownToolsPlugin
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfe` :call MarkdownTools_ToggleEnvPath('`')<CR>
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfew :call MarkdownTools_ToggleEnvPath('W')<CR>
 
+    " Path Tools (Relative -> Absolute)
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfa" :call MarkdownTools_ConvertRelativeToAbsolute('"')<CR>
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfa' :call MarkdownTools_ConvertRelativeToAbsolute("'")<CR>
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfa( :call MarkdownTools_ConvertRelativeToAbsolute('(')<CR>
@@ -608,6 +654,7 @@ augroup MarkdownToolsPlugin
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfa` :call MarkdownTools_ConvertRelativeToAbsolute('`')<CR>
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfaw :call MarkdownTools_ConvertRelativeToAbsolute('W')<CR>
 
+    " Path Tools (Absolute -> Relative)
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfr" :call MarkdownTools_ConvertAbsoluteToRelative('"')<CR>
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfr' :call MarkdownTools_ConvertAbsoluteToRelative("'")<CR>
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfr( :call MarkdownTools_ConvertAbsoluteToRelative('(')<CR>
@@ -618,7 +665,6 @@ augroup MarkdownToolsPlugin
     " File migration flow (file, link, resources)
     autocmd FileType markdown nnoremap <buffer> <leader>mfR :call MarkdownTools_RenameFilePath()<CR>
     autocmd FileType markdown vnoremap <buffer> <leader>mfR :<C-u>call MarkdownTools_RenameFilePath()<CR>
-    autocmd FileType markdown nnoremap <buffer> <leader>mfI :call MarkdownTools_InsertWikiLink()<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mfL :call MarkdownTools_LocalizeResources()<CR>
 
     " Obsidian-Style Link & Backlink Discovery Tools for Vimwiki

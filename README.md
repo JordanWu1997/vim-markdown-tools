@@ -70,7 +70,9 @@ All mappings are local to `markdown` filetypes and typically use `<leader>` as t
 | `<leader>mfr{char}` |           Convert path to Relative for path wrapped in `{char}`            |
 |    `<leader>mfR`    |    Rename file path under cursor and update buffer (work for all files)    |
 |    `<leader>mfL`    | Localize resources path (all outlinks contains `figures/` in current file) |
-|    `<leader>mfI`    |          Insert markdown file path using fuzzy matching file name          |
+|    `<leader>mfi`    |          Insert markdown file path using fuzzy matching file name          |
+|    `<leader>mfI`    |             Select markdown template file to insert file path              |
+|    `<leader>mfd`    |            Update datetime YYYY-HH-DD HH:MM:SS to current time             |
 
 | **Search & Navigation** |                  **Action**                   |
 | :---------------------: | :-------------------------------------------: |
