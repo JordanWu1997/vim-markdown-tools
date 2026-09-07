@@ -48,6 +48,7 @@ function! s:MarkdownTools_LoadMarkdownTemplate() abort
         if filereadable(l:template)
             exec '0r' l:template
             keeppatterns silent! %s/YYYY-mm-DD HH:MM:SS/\=strftime("%Y-%m-%d %T")/g
+            keeppatterns silent! %s/YYYY-mm-DD/\=strftime("%Y-%m-%d")/g
         endif
     endif
 endfunction
@@ -615,7 +616,7 @@ augroup MarkdownToolsPlugin
 
     " Insert template and update datetime
     autocmd FileType markdown nnoremap <buffer> <Leader>mfI :call MarkdownTools_InsertMarkdownTemplate()<CR>
-    autocmd FileType markdown nnoremap <buffer> <leader>mfd <Esc>:keeppatterns %s/YYYY-mm-DD HH:MM:SS/\=strftime("%Y-%m-%d %T")/g<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfd <Esc>:keeppatterns %s/YYYY-mm-DD HH:MM:SS/\=strftime("%Y-%m-%d %T")/g<CR>:keeppatterns %s/YYYY-mm-DD/\=strftime("%Y-%m-%d")/g<CR>
 
     " Mappings specific to Markdown
     autocmd FileType markdown nnoremap <buffer> <leader>mo :exe '!'. g:md_tools_browser .' %:p &'<CR>
