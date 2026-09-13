@@ -41,55 +41,57 @@ Plug 'JordanWu1997/vim-markdown-tools'
 
 All mappings are local to `markdown` filetypes and typically use `<leader>` as the prefix.
 
-| **Preview/Export** |              **Action**               |
-| :----------------: | :-----------------------------------: |
-|    `<leader>mo`    | Open current Markdown file in browser |
-|    `<leader>mp`    |     Export to Marp slides (HTML)      |
-|    `<leader>mP`    |       Open Marp HTML in browser       |
-|    `<leader>me`    |  Export to Pandoc HTML (standalone)   |
-|    `<leader>mE`    |      Open Pandoc HTML in browser      |
+| **Preview/Export/Open** | **Action**                            |
+| ----------------------- | ------------------------------------- |
+| `<leader>mo`            | Open file or URL under cursor         |
+| `<leader>mO`            | Open current Markdown file in browser |
+| `<leader>mp`            | Export to Marp slides (HTML)          |
+| `<leader>mP`            | Open Marp HTML in browser             |
+| `<leader>me`            | Export to Pandoc HTML (standalone)    |
+| `<leader>mE`            | Open Pandoc HTML in browser           |
 
-| **Insertions** |               **Action**               |
-| :------------: | :------------------------------------: |
-|  `<leader>mi`  |     Insert image link `![text]()`      |
-|  `<leader>mI`  |        Insert HTML `<img>` tag         |
-|  `<leader>mV`  |       Insert HTML `<video>` tag        |
-|  `<leader>ml`  |         Insert link `[text]()`         |
-|  `<leader>mb`  |        Insert checkbox `- [ ]`         |
-|  `<leader>mB`  |    Insert code block ```` ``` ````     |
-|  `<leader>mw`  |            Insert tag `::`             |
-|  `<leader>mc`  | Insert opening `<span style="color:">` |
-|  `<leader>mC`  |        Insert closing `</span>`        |
-|  `<leader>mT`  |       Insert HTML table template       |
-|  `<leader>\|`  |   Insert Pandoc-style footnote `[^]`   |
+| **Insertions** | **Action**                             |
+| -------------- | -------------------------------------- |
+| `<leader>mi`   | Insert image link `![text]()`          |
+| `<leader>mI`   | Insert HTML `<img>` tag                |
+| `<leader>mV`   | Insert HTML `<video>` tag              |
+| `<leader>ml`   | Insert link `[text]()`                 |
+| `<leader>mb`   | Insert checkbox `- [ ]`                |
+| `<leader>mB`   | Insert code block \`\`\`\`\`           |
+| `<leader>mw`   | Insert tag `::`                        |
+| `<leader>mc`   | Insert opening `<span style="color:">` |
+| `<leader>mC`   | Insert closing `</span>`               |
+| `<leader>mT`   | Insert HTML table template             |
+| `<leader>\|`   |   Insert Pandoc-style footnote `[^]`   |
 
-|   **Path Tools**    |                                 **Action**                                 |
-| :-----------------: | :------------------------------------------------------------------------: |
-| `<leader>mfe{char}` |   Toggle Env Path (expand/collapse `$HOME`) for path wrapped in `{char}`   |
-| `<leader>mfa{char}` |           Convert path to Absolute for path wrapped in `{char}`            |
-| `<leader>mfr{char}` |           Convert path to Relative for path wrapped in `{char}`            |
-|    `<leader>mfR`    |    Rename file path under cursor and update buffer (work for all files)    |
-|    `<leader>mfL`    | Localize resources path (all outlinks contains `figures/` in current file) |
-|    `<leader>mfi`    |          Insert markdown file path using fuzzy matching file name          |
-|    `<leader>mfI`    |             Select markdown template file to insert file path              |
-|    `<leader>mfd`    |            Update datetime YYYY-HH-DD HH:MM:SS to current time             |
+| **Path Tools**      | **Action**                                                                 |
+| ------------------- | -------------------------------------------------------------------------- |
+| `<leader>mfe{char}` | Toggle Env Path (expand/collapse `$HOME`) for path wrapped in `{char}`     |
+| `<leader>mfa{char}` | Convert path to Absolute for path wrapped in `{char}`                      |
+| `<leader>mfr{char}` | Convert path to Relative for path wrapped in `{char}`                      |
+| `<leader>mfR`       | Rename file path under cursor and update buffer (work for all files)       |
+| `<leader>mfL`       | Localize resources path (all outlinks contains `figures/` in current file) |
+| `<leader>mfi`       | Insert markdown file path using fuzzy matching file name                   |
+| `<leader>mfI`       | Select markdown template file to insert file path                          |
+| `<leader>mfd`       | Update datetime YYYY-HH-DD HH:MM:SS to current time                        |
 
-| **Search & Navigation** |                  **Action**                   |
-| :---------------------: | :-------------------------------------------: |
-|      `<leader>mfg`      |           Grep all files in vimwiki           |
-|      `<leader>mfb`      | Find all backlinks to current file (Quickfix) |
-|      `<leader>mfo`      | Find all outlinks to current file (Quickfix)  |
-|      `<leader>mfA`      |    Find all paths and websites (Quickfix)     |
-|      `<leader>mfw`      |         Find websites only (Quickfix)         |
-|      `<leader>mff`      |        Find file paths only (Quickfix)        |
-|      `<leader>mfh`      |         Find headers (Location list)          |
-|      `<leader>mfH`      |         Find headers (Quickfix list)          |
+| **Search & Navigation** | **Action**                                    |
+| ----------------------- | --------------------------------------------- |
+| `<leader>mfg`           | Grep all files in vimwiki                     |
+| `<leader>mfb`           | Find all backlinks to current file (Quickfix) |
+| `<leader>mfo`           | Find all outlinks to current file (Quickfix)  |
+| `<leader>mfA`           | Find all paths and websites (Quickfix)        |
+| `<leader>mfw`           | Find websites only (Quickfix)                 |
+| `<leader>mff`           | Find file paths only (Quickfix)               |
+| `<leader>mfh`           | Find headers (Location list)                  |
+| `<leader>mfH`           | Find headers (Quickfix list)                  |
 
-| **Management** |                **Action**                |
-| :------------: | :--------------------------------------: |
-| `<leader>mfp`  | Capture and paste screenshot (Flameshot) |
+| **Management** | **Action**                                       |
+| -------------- | ------------------------------------------------ |
+| `<leader>mfp`  | Paste image from system clipboard to `./figures` |
+| `<leader>mfP`  | Capture and paste screenshot (Flameshot)         |
 
-*Note: For path tools, `{char}` can be `"`, `'`, `(`, `)`, `` ` ``, or `w` (for word).*
+*Note: For path tools, `{char}` can be `"`, `'`, `(`, `)`, \`\`\`, or `w` (for word).*
 
 ## Configuration
 

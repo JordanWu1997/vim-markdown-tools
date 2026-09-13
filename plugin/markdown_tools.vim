@@ -326,6 +326,74 @@ function! MarkdownTools_CaptureAndPasteImage()
     endif
 endfunction
 
+" Open the file, PDF, or URL under the cursor using the system default app
+function! MarkdownTools_OpenFileOrLink()
+    let l:target = expand('<cfile>')
+    if empty(l:target)
+        echoerr "No file or link found under cursor."
+        return
+    endif
+    " If it's not a web URL and not an absolute path, resolve it as a relative path
+    if l:target !~# '^http[s]\?://' && l:target !~# '^/' && l:target !~# '^~'
+        let l:target = expand('%:p:h') . '/' . l:target
+    endif
+    " Expand tilde if present (e.g., ~/Documents/...)
+    if l:target =~# '^~'
+        let l:target = fnamemodify(l:target, ':p')
+    endif
+    " Execute xdg-open asynchronously (Linux) or open (macOS)
+    if executable('xdg-open')
+        call system('xdg-open ' . shellescape(l:target) . ' &')
+        redraw | echo "Opened: " . l:target
+    elseif executable('open')
+        call system('open ' . shellescape(l:target) . ' &')
+        redraw | echo "Opened: " . l:target
+    else
+        echoerr "System open command (xdg-open / open) not found."
+    endif
+endfunction
+
+" Paste an image directly from the system clipboard to ./figures
+function! MarkdownTools_PasteClipboardImage()
+    if expand('%:p') == ''
+        echoerr "Please save the markdown file first to determine the directory path!"
+        return
+    endif
+    let l:current_dir = expand('%:p:h')
+    let l:fig_dir = l:current_dir . '/figures'
+    if !isdirectory(l:fig_dir) | call mkdir(l:fig_dir, 'p') | endif
+    let l:filename = 'clip_' . strftime('%Y%m%d_%H%M%S') . '.png'
+    let l:filepath = l:fig_dir . '/' . l:filename
+    let l:relpath = 'figures/' . l:filename
+    " Determine the clipboard tool based on the user's OS / Display Server
+    let l:cmd = ''
+    if executable('wl-paste')
+        " Wayland (Linux)
+        let l:cmd = 'wl-paste --type image/png > ' . shellescape(l:filepath)
+    elseif executable('xclip')
+        " X11 (Linux)
+        let l:cmd = 'xclip -selection clipboard -t image/png -o > ' . shellescape(l:filepath)
+    elseif executable('pngpaste')
+        " macOS (requires: brew install pngpaste)
+        let l:cmd = 'pngpaste ' . shellescape(l:filepath)
+    else
+        echoerr "Clipboard tool missing. Install xclip, wl-paste, or pngpaste."
+        return
+    endif
+    " Execute the paste command
+    call system(l:cmd)
+    " Verify if the image was actually saved (file size > 0)
+    if getfsize(l:filepath) > 0
+        " Insert the Markdown image syntax at the cursor
+        execute "normal! a![](" . l:relpath . ")\<Esc>"
+        redraw | echo "Clipboard image pasted to " . l:relpath
+    else
+        " Clean up the empty file if clipboard didn't contain an image
+        call system('rm ' . shellescape(l:filepath))
+        redraw | echo "No image found in system clipboard."
+    endif
+endfunction
+
 " Obsidian-Style Link & Backlink Discovery Tools for Vimwiki
 function! MarkdownTools_FindBacklinks()
     let l:current_file = expand('%:p')
@@ -618,8 +686,11 @@ augroup MarkdownToolsPlugin
     autocmd FileType markdown nnoremap <buffer> <Leader>mfI :call MarkdownTools_InsertMarkdownTemplate()<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mfd <Esc>:keeppatterns %s/YYYY-mm-DD HH:MM:SS/\=strftime("%Y-%m-%d %T")/g<CR>:keeppatterns %s/YYYY-mm-DD/\=strftime("%Y-%m-%d")/g<CR>
 
+    " Open files, links, markdown file (for preview)
+    autocmd FileType markdown nnoremap <buffer> <leader>mo :call MarkdownTools_OpenFileOrLink()<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mO :exe '!'. g:md_tools_browser .' %:p &'<CR>
+
     " Mappings specific to Markdown
-    autocmd FileType markdown nnoremap <buffer> <leader>mo :exe '!'. g:md_tools_browser .' %:p &'<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mp :!marp % --html<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mP :exe '!'. g:md_tools_browser .' %:r.html &'<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>me :!pandoc % -f markdown -t html --data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --metadata=title:%:t:r --toc<space>
@@ -681,6 +752,7 @@ augroup MarkdownToolsPlugin
     autocmd FileType markdown nnoremap <buffer> <leader>mfH :vimgrep /^#/ %<CR>
 
     " Note/Image management
-    autocmd FileType markdown nnoremap <buffer> <leader>mfp :call MarkdownTools_CaptureAndPasteImage()<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfp :call MarkdownTools_PasteClipboardImage()<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfP :call MarkdownTools_CaptureAndPasteImage()<CR>
 
 augroup END
