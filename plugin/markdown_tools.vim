@@ -489,6 +489,7 @@ function! MarkdownTools_FindOutlinks()
     endif
 endfunction
 
+" Insert Link from Vimwiki
 function! MarkdownTools_InsertWikiLink()
     " Determine Vimwiki Root Directory
     let l:wiki_root = ''
@@ -537,15 +538,26 @@ function! MarkdownTools_ConvertImgHtmlToMarkdown()
         echoerr "No HTML <img> tag found on the current line."
         return
     endif
-    " Extract src and alt attributes (handles both single and double quotes)
+    " Extract src, alt, and title attributes (handles both single and double quotes)
     let l:src = matchstr(l:match, 'src=["'']\zs[^"'']\+\ze["'']')
     let l:alt = matchstr(l:match, 'alt=["'']\zs[^"'']*\ze["'']')
+    let l:title = matchstr(l:match, 'title=["'']\zs[^"'']*\ze["'']')
     if empty(l:src)
         echoerr "No 'src' attribute found in the <img> tag."
         return
     endif
+    " If alt is empty but title exists, use the title as the [link name] fallback
+    if empty(l:alt) && !empty(l:title)
+        let l:alt = l:title
+    endif
     " Construct the Markdown image string
-    let l:md_img = '![' . l:alt . '](' . l:src . ')'
+    let l:md_img = '![' . l:alt . '](' . l:src
+    " Append the title string if it exists
+    if !empty(l:title)
+        let l:md_img .= ' "' . l:title . '"'
+    endif
+    " Close the parentheses
+    let l:md_img .= ')'
     " Escape the exact matched string for safe substitution
     let l:escaped_match = escape(l:match, '/\.*$^~[ ]')
     " Replace the first occurrence on the line
