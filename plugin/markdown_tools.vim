@@ -527,6 +527,33 @@ function! MarkdownTools_InsertWikiLink()
         \ }))
 endfunction
 
+" Convert HTML <img> tag on the current line to Markdown ![]() syntax
+function! MarkdownTools_ConvertImgHtmlToMarkdown()
+    let l:line = getline('.')
+    " Pattern to match the entire <img ... > tag
+    let l:img_pattern = '<img\s\+[^>]*>'
+    let l:match = matchstr(l:line, l:img_pattern)
+    if empty(l:match)
+        echoerr "No HTML <img> tag found on the current line."
+        return
+    endif
+    " Extract src and alt attributes (handles both single and double quotes)
+    let l:src = matchstr(l:match, 'src=["'']\zs[^"'']\+\ze["'']')
+    let l:alt = matchstr(l:match, 'alt=["'']\zs[^"'']*\ze["'']')
+    if empty(l:src)
+        echoerr "No 'src' attribute found in the <img> tag."
+        return
+    endif
+    " Construct the Markdown image string
+    let l:md_img = '![' . l:alt . '](' . l:src . ')'
+    " Escape the exact matched string for safe substitution
+    let l:escaped_match = escape(l:match, '/\.*$^~[ ]')
+    " Replace the first occurrence on the line
+    let l:new_line = substitute(l:line, '\V' . l:escaped_match, escape(l:md_img, '\&~'), '')
+    call setline('.', l:new_line)
+    redraw | echo "Converted HTML image to Markdown syntax."
+endfunction
+
 " ============================================================================
 " Collect Matches
 " ============================================================================
@@ -733,6 +760,9 @@ augroup MarkdownToolsPlugin
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfr) :call MarkdownTools_ConvertAbsoluteToRelative('(')<CR>
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfr` :call MarkdownTools_ConvertAbsoluteToRelative('`')<CR>
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfrw :call MarkdownTools_ConvertAbsoluteToRelative('W')<CR>
+
+    " Convert HTML image to Markdown image syntax on current line
+    autocmd FileType markdown nnoremap <buffer> <leader>mfc :call MarkdownTools_ConvertImgHtmlToMarkdown()<CR>
 
     " File migration flow (file, link, resources)
     autocmd FileType markdown nnoremap <buffer> <leader>mfR :call MarkdownTools_RenameFilePath()<CR>
