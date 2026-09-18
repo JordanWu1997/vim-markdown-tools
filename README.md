@@ -21,6 +21,16 @@ Using [vim-plug](https://github.com/junegunn/vim-plug):
 Plug 'JordanWu1997/vim-markdown-tools'
 ```
 
+### [OPTIONAL] Install Pandoc Templates
+
+- Resources
+  - https://github.com/ryangrose/easy-pandoc-templates
+
+```sh
+# Clones repo to /tmp and copies templates to ~/.pandoc/templates
+curl 'https://raw.githubusercontent.com/ryangrose/easy-pandoc-templates/master/copy_templates.sh' | bash
+```
+
 ## Features
 
 - **📝 Smart Templates**: Automatically populates new `.md` files with a customizable template (including auto-updating timestamps).
@@ -62,7 +72,7 @@ All mappings are local to `markdown` filetypes and typically use `<leader>` as t
 | `<leader>mc`   | Insert opening `<span style="color:">` |
 | `<leader>mC`   | Insert closing `</span>`               |
 | `<leader>mT`   | Insert HTML table template             |
-| `<leader>\|`   |   Insert Pandoc-style footnote `[^]`   |
+| `<leader>\|`   | Insert Pandoc-style footnote `[^]`     |
 
 | **Path Tools**      | **Action**                                                                 |
 | ------------------- | -------------------------------------------------------------------------- |
