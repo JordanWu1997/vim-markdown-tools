@@ -728,12 +728,12 @@ augroup MarkdownToolsPlugin
     " Open files, links, markdown file (for preview)
     autocmd FileType markdown nnoremap <buffer> <leader>mo :call MarkdownTools_OpenFileOrLink()<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mO :exe '!'. g:md_tools_browser .' %:p &'<CR>
-
-    " Mappings specific to Markdown
-    autocmd FileType markdown nnoremap <buffer> <leader>mp :!marp % --html<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mP :exe '!'. g:md_tools_browser .' %:r.html &'<CR>
-    autocmd FileType markdown nnoremap <buffer> <leader>me :!pandoc % -f markdown -t html --data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --metadata=title:%:t:r --toc<space>
-    autocmd FileType markdown nnoremap <buffer> <leader>mE :exe '!'. g:md_tools_browser .' %:r.html &'<CR>
+
+    " Export files (marp, pandoc)
+    autocmd FileType markdown nnoremap <buffer> <leader>mfe1 :!marp % --html<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfe2 :!pandoc % -f markdown -t html --data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --metadata=title:%:t:r --toc<space>
+    autocmd FileType markdwon nnoremap <buffer> <leader>mfe3 :<C-r>=printf('!pandoc "%s" -o "%s.html" -f markdown -d "%s/assets/weasyprint/document.yaml" --lua-filter="%s/assets/html/raw-img.lua" --lua-filter="%s/assets/mermaid/mermaid-link.lua"', expand('%'), expand('%:r'), s:plugin_root, s:plugin_root, s:plugin_root)<CR>
 
     " Insertions
     autocmd FileType markdown nnoremap <buffer> <leader>mi <Esc>i![this_is_an_image]()<Left>
