@@ -717,7 +717,7 @@ function! s:GetExportMd2PdfCmd()
     let l:img    = s:plugin_root . '/assets/html/raw-img.lua'
     let l:mermaid = s:plugin_root . '/assets/mermaid/mermaid-link.lua'
     return printf('!pandoc "%s" -o "%s" -f markdown -t pdf -d "%s" --lua-filter="%s" --lua-filter="%s"',
-                \ l:input, l:output, l:config, l:img, l:mermaid, expand('%:t:r'))
+                \ l:input, l:output, l:config, l:img, l:mermaid)
 endfunction
 
 " ============================================================================
