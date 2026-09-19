@@ -705,6 +705,17 @@ function! MarkdownTools_InsertMarkdownTemplate() abort
         \ })
 endfunction
 
+" Locate plugin root dynamically relative to this script
+function! s:get_pandoc_cmd()
+    let l:input  = expand('%')
+    let l:output = expand('%:r') . '.html'
+    let l:config = s:plugin_root . '/assets/weasyprint/document.yaml'
+    let l:img    = s:plugin_root . '/assets/html/raw-img.lua'
+    let l:mermaid = s:plugin_root . '/assets/mermaid/mermaid-link.lua'
+    return printf('!pandoc "%s" -o "%s" -f markdown -t html --data-dir="$HOME/.pandoc" --template=bootstrap_menu.html -d "%s" --lua-filter="%s" --lua-filter="%s" --metadata=title="%s" --toc',
+                \ l:input, l:output, l:config, l:img, l:mermaid, expand('%:t:r'))
+endfunction
+
 " ============================================================================
 " --- Autocommands & Filetype Specific Mappings ---
 " ============================================================================
@@ -733,7 +744,7 @@ augroup MarkdownToolsPlugin
     " Export files (marp, pandoc)
     autocmd FileType markdown nnoremap <buffer> <leader>mfe1 :!marp % --html<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mfe2 :!pandoc % -f markdown -t html --data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --metadata=title:%:t:r --toc<space>
-    autocmd FileType markdown nnoremap <buffer> <leader>mfe3 :<C-r>=printf('!pandoc "%s" -o "%s.html" -f markdown -d "%s/assets/weasyprint/document.yaml" --lua-filter="%s/assets/html/raw-img.lua" --lua-filter="%s/assets/mermaid/mermaid-link.lua"', expand('%'), expand('%:r'), s:plugin_root, s:plugin_root, s:plugin_root)<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfe3 :<C-r>=<SID>get_pandoc_cmd()<CR>
 
     " Insertions
     autocmd FileType markdown nnoremap <buffer> <leader>mi <Esc>i![this_is_an_image]()<Left>
