@@ -712,11 +712,11 @@ endfunction
 " Locate plugin root dynamically relative to this script
 function! s:GetExportMd2PdfCmd()
     let l:input  = expand('%')
-    let l:output = expand('%:r') . 'pdf'
+    let l:output = expand('%:r') . '.pdf'
     let l:config = s:plugin_root . '/assets/weasyprint/document.yaml'
     let l:img    = s:plugin_root . '/assets/html/raw-img.lua'
     let l:mermaid = s:plugin_root . '/assets/mermaid/mermaid-link.lua'
-    return printf('!pandoc "%s" -o "%s" -f markdown -t html --data-dir="$HOME/.pandoc" --template=bootstrap_menu.html -d "%s" --lua-filter="%s" --lua-filter="%s" --metadata=title="%s"',
+    return printf('!pandoc "%s" -o "%s" -f markdown -t pdf -d "%s" --lua-filter="%s" --lua-filter="%s" --metadata=title="%s"',
                 \ l:input, l:output, l:config, l:img, l:mermaid, expand('%:t:r'))
 endfunction
 
@@ -749,7 +749,7 @@ augroup MarkdownToolsPlugin
     autocmd FileType markdown nnoremap <buffer> <leader>mfe1 :!marp % --html<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mfe2 :!pandoc % -f markdown -t html --data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --metadata=title:%:t:r --toc<space>
     autocmd FileType markdown nnoremap <buffer> <leader>mfe3 :<C-r>=<SID>GetExportMd2PdfCmd()<CR>
-    autocmd FileType markdown nnoremap <buffer> <leader>mfe4 :!soffice --headless --infilter="HTML (StarWriter)" --convert-to "docx:MS Word 2007 XML" %:r.html
+    autocmd FileType markdown nnoremap <buffer> <leader>mfe4 :!soffice --headless --infilter="HTML (StarWriter)" --convert-to "docx:MS Word 2007 XML" %:r.html<CR>
 
     " Insertions
     autocmd FileType markdown nnoremap <buffer> <leader>mi <Esc>i![this_is_an_image]()<Left>
