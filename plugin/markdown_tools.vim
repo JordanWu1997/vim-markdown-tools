@@ -746,12 +746,13 @@ augroup MarkdownToolsPlugin
     autocmd FileType markdown nnoremap <buffer> <leader>mO :exe '!'. g:md_tools_browser .' %:p &'<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mP :exe '!'. g:md_tools_browser .' %:r.html &'<CR>
 
-    " Export files (1: Marp MD -> HTML, 2: Pandoc MD -> HTML, 3: Pandoc MD -> PDF, 4: Libreoffice HTML -> DOCX)
+   " Export files (1: Marp MD -> HTML, 2: Pandoc MD -> HTML, 3: Pandoc MD -> PDF, 4: Libreoffice HTML -> DOCX)
     autocmd FileType markdown nnoremap <buffer> <leader>mfe1 :!marp % --html<CR>
-    "autocmd FileType markdown nnoremap <buffer> <leader>mfe2 :!pandoc % -f markdown -t html --embed-resources --standalone --data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --metadata=title:%:t:r --toc<space>
-    autocmd FileType markdown nnoremap <buffer> <leader>mfe2 :!pandoc % -f markdown -t html --self-contained --standalone --data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --metadata=title:%:t:r --toc<space>
-    autocmd FileType markdown nnoremap <buffer> <leader>mfe3 :<C-u><C-r>=<SID>GetExportMd2PdfCmd()<CR><space>--filter pandoc-citeproc<space>
-    autocmd FileType markdown nnoremap <buffer> <leader>mfe4 :!soffice --headless --infilter="HTML (StarWriter)" --convert-to "docx:MS Word 2007 XML" %:r.html<CR>
+    "autocmd FileType markdown nnoremap <buffer> <leader>mfe2 :!pandoc % -f markdown -t html --standalone --data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --embed-resources --metadata=title:%:t:r --toc<space>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfe2 :!pandoc % -f markdown -t html --standalone --data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --self-contained --metadata=title:%:t:r --toc<space>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfe3 :!pandoc % -f markdown -t html --standalone --data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --metadata=title:%:t:r --toc<space>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfe4 :<C-u><C-r>=<SID>GetExportMd2PdfCmd()<CR><space>--filter pandoc-citeproc<space>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfe5 :!soffice --headless --infilter="HTML (StarWriter)" --convert-to "docx:MS Word 2007 XML" %:r.html<CR>
 
     " Insertions
     autocmd FileType markdown nnoremap <buffer> <leader>mi <Esc>i![this_is_an_image]()<Left>

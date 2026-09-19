@@ -57,12 +57,13 @@ All mappings are local to `markdown` filetypes and typically use `<leader>` as t
 | `<leader>mO`     | Open current Markdown file in browser      |
 | `<leader>mp`     | Open current filename HTML file in browser |
 
-| **Export**     | **Action**                            |
-| -------------- | ------------------------------------- |
-| `<leader>mfe1` | Export MD to Marp HTML (standalone)   |
-| `<leader>mfe2` | Export MD to Pandoc HTML (standalone) |
-| `<leader>mfe3` | Export MD to PDF                      |
-| `<leader>mfe4` | Export MD to DOCX (via libreoffice)   |
+| **Export**     | **Action**                                             |
+| -------------- | ------------------------------------------------------ |
+| `<leader>mfe1` | Export MD to Marp HTML (standalone)                    |
+| `<leader>mfe2` | Export MD to Pandoc HTML (standalone + self-contained) |
+| `<leader>mfe3` | Export MD to Pandoc HTML (standalone)                  |
+| `<leader>mfe4` | Export MD to PDF                                       |
+| `<leader>mfe5` | Export MD to DOCX (via libreoffice)                    |
 
 | **Insertions** | **Action**                             |
 | -------------- | -------------------------------------- |
