@@ -51,14 +51,18 @@ curl 'https://raw.githubusercontent.com/ryangrose/easy-pandoc-templates/master/c
 
 All mappings are local to `markdown` filetypes and typically use `<leader>` as the prefix.
 
-| **Preview/Export/Open** | **Action**                            |
-| ----------------------- | ------------------------------------- |
-| `<leader>mo`            | Open file or URL under cursor         |
-| `<leader>mO`            | Open current Markdown file in browser |
-| `<leader>mp`            | Export to Marp slides (HTML)          |
-| `<leader>mP`            | Open Marp HTML in browser             |
-| `<leader>me`            | Export to Pandoc HTML (standalone)    |
-| `<leader>mE`            | Open Pandoc HTML in browser           |
+| **Preview/Open** | **Action**                                 |
+| ---------------- | ------------------------------------------ |
+| `<leader>mo`     | Open file or URL under cursor              |
+| `<leader>mO`     | Open current Markdown file in browser      |
+| `<leader>mp`     | Open current filename HTML file in browser |
+
+| **Export**     | **Action**                            |
+| -------------- | ------------------------------------- |
+| `<leader>mfe1` | Export MD to Marp HTML (standalone)   |
+| `<leader>mfe2` | Export MD to Pandoc HTML (standalone) |
+| `<leader>mfe3` | Export MD to PDF                      |
+| `<leader>mfe4` | Export MD to DOCX (via libreoffice)   |
 
 | **Insertions** | **Action**                             |
 | -------------- | -------------------------------------- |

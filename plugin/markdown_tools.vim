@@ -705,14 +705,18 @@ function! MarkdownTools_InsertMarkdownTemplate() abort
         \ })
 endfunction
 
+" ============================================================================
+" Export Functions
+" ============================================================================
+
 " Locate plugin root dynamically relative to this script
-function! s:get_pandoc_cmd()
+function! s:GetExportMd2PdfCmd()
     let l:input  = expand('%')
-    let l:output = expand('%:r') . '.html'
+    let l:output = expand('%:r') . 'pdf'
     let l:config = s:plugin_root . '/assets/weasyprint/document.yaml'
     let l:img    = s:plugin_root . '/assets/html/raw-img.lua'
     let l:mermaid = s:plugin_root . '/assets/mermaid/mermaid-link.lua'
-    return printf('!pandoc "%s" -o "%s" -f markdown -t html --data-dir="$HOME/.pandoc" --template=bootstrap_menu.html -d "%s" --lua-filter="%s" --lua-filter="%s" --metadata=title="%s" --toc',
+    return printf('!pandoc "%s" -o "%s" -f markdown -t html --data-dir="$HOME/.pandoc" --template=bootstrap_menu.html -d "%s" --lua-filter="%s" --lua-filter="%s" --metadata=title="%s"',
                 \ l:input, l:output, l:config, l:img, l:mermaid, expand('%:t:r'))
 endfunction
 
@@ -741,10 +745,11 @@ augroup MarkdownToolsPlugin
     autocmd FileType markdown nnoremap <buffer> <leader>mO :exe '!'. g:md_tools_browser .' %:p &'<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mP :exe '!'. g:md_tools_browser .' %:r.html &'<CR>
 
-    " Export files (marp, pandoc)
+    " Export files (1: Marp MD -> HTML, 2: Pandoc MD -> HTML, 3: Pandoc MD -> PDF, 4: Libreoffice HTML -> DOCX)
     autocmd FileType markdown nnoremap <buffer> <leader>mfe1 :!marp % --html<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mfe2 :!pandoc % -f markdown -t html --data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --metadata=title:%:t:r --toc<space>
-    autocmd FileType markdown nnoremap <buffer> <leader>mfe3 :<C-r>=<SID>get_pandoc_cmd()<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfe3 :<C-r>=<SID>GetExportMd2PdfCmd()<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfe4 :!soffice --headless --infilter="HTML (StarWriter)" --convert-to "docx:MS Word 2007 XML" %:r.html
 
     " Insertions
     autocmd FileType markdown nnoremap <buffer> <leader>mi <Esc>i![this_is_an_image]()<Left>
