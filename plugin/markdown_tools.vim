@@ -717,7 +717,7 @@ function! s:GetExportMd2PdfCmd()
     let l:img    = s:plugin_root . '/assets/html/raw-img.lua'
     let l:mermaid = s:plugin_root . '/assets/mermaid/mermaid-link.lua'
     let l:csl = s:plugin_root . '/assets/csl/apa.csl'
-    return printf('!pandoc "%s" -o "%s" -f markdown -t pdf -s -d "%s" --lua-filter="%s" --lua-filter="%s --cite --csl %s"',
+    return printf('!pandoc "%s" -o "%s" -f markdown -t pdf -s -d "%s" --lua-filter="%s" --lua-filter="%s" --filter pandoc-citeproc "--csl %s"',
                 \ l:input, l:output, l:config, l:img, l:mermaid, l:csl)
 endfunction
 
@@ -748,7 +748,7 @@ augroup MarkdownToolsPlugin
 
     " Export files (1: Marp MD -> HTML, 2: Pandoc MD -> HTML, 3: Pandoc MD -> PDF, 4: Libreoffice HTML -> DOCX)
     autocmd FileType markdown nnoremap <buffer> <leader>mfe1 :!marp % --html<CR>
-    autocmd FileType markdown nnoremap <buffer> <leader>mfe2 :!pandoc % -f markdown -t html -s ---data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --metadata=title:%:t:r --toc<space>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfe2 :!pandoc % -f markdown -t html -s --data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --metadata=title:%:t:r --toc<space>
     autocmd FileType markdown nnoremap <buffer> <leader>mfe3 :<C-r>=<SID>GetExportMd2PdfCmd()<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mfe4 :!soffice --headless --infilter="HTML (StarWriter)" --convert-to "docx:MS Word 2007 XML" %:r.html<CR>
 
