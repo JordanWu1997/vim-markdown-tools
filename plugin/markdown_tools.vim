@@ -733,7 +733,7 @@ augroup MarkdownToolsPlugin
     " Export files (marp, pandoc)
     autocmd FileType markdown nnoremap <buffer> <leader>mfe1 :!marp % --html<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mfe2 :!pandoc % -f markdown -t html --data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --metadata=title:%:t:r --toc<space>
-    autocmd FileType markdwon nnoremap <buffer> <leader>mfe3 :<C-r>=printf('!pandoc "%s" -o "%s.html" -f markdown -d "%s/assets/weasyprint/document.yaml" --lua-filter="%s/assets/html/raw-img.lua" --lua-filter="%s/assets/mermaid/mermaid-link.lua"', expand('%'), expand('%:r'), s:plugin_root, s:plugin_root, s:plugin_root)<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfe3 :<C-r>=printf('!pandoc "%s" -o "%s.html" -f markdown -d "%s/assets/weasyprint/document.yaml" --lua-filter="%s/assets/html/raw-img.lua" --lua-filter="%s/assets/mermaid/mermaid-link.lua"', expand('%'), expand('%:r'), s:plugin_root, s:plugin_root, s:plugin_root)<CR>
 
     " Insertions
     autocmd FileType markdown nnoremap <buffer> <leader>mi <Esc>i![this_is_an_image]()<Left>
