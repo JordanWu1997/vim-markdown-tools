@@ -1,25 +1,39 @@
-" ==============================================================================
-" Plugin:        vim-markdown-tools
-" File:          markdown_tools.vim
-" Description:   A comprehensive Markdown toolkit for Vim/Neovim.
+" ============================================================================
+" vim-markdown-tools
 "
-" Features:
-"   - 📝 Auto-loads customizable templates for new Markdown files.
-"   - 👁️ Seamless previewing and exporting (Pandoc HTML, Marp presentations).
-"   - 🔗 Advanced Path Management: Toggle between Absolute, Relative, and $HOME
-"     environment paths instantly for files and links under the cursor.
-"   - 📂 Smart Note Moving: Safely relocates Markdown files and migrates
-"     associated './figures' directories.
-"   - 📸 Native Flameshot integration for capturing and pasting scaled screenshots.
-"   - 🔍 Search Tools: Instantly populate Quickfix/Location lists with all
-"     embedded websites, file paths, or markdown headers.
-"   - ⚡ Quick-insert mappings for images, videos, checkboxes, and tables.
+" Comprehensive Markdown utilities for Vim/Neovim.
 "
-" Maintainer:    JordanWu1997 <jordankhwu@gmail.com>
-" Repository:    https://github.com/JordanWu1997/vim-markdown-tools
-" Version:       1.0.0
-" License:       MIT License
-" ==============================================================================
+" Main areas:
+"
+"   Templates    Markdown templates and date placeholders
+"   Images       Clipboard and Flameshot integration
+"   Paths        Environment / absolute / relative path conversion
+"   Files        Rename, move and resource localization
+"   Links        Wiki links, backlinks and outgoing links
+"   Search       URLs, paths, headers and vault grep
+"   Export       Marp, Pandoc and LibreOffice
+"
+" Primary mapping namespace:
+"
+"   <leader>mf...
+"
+" Documentation:
+"
+"   :help markdown-tools
+"
+" Repository:
+"
+"   https://github.com/JordanWu1997/vim-markdown-tools
+"
+" License:
+"
+"   MIT
+"
+" ============================================================================
+
+" ============================================================================
+" Configuration
+" ============================================================================
 
 if exists('g:loaded_markdown_tools')
     finish
@@ -36,10 +50,8 @@ let g:md_tools_table_template = get(g:, 'md_tools_table_template', g:md_tools_te
 let g:md_tools_browser = get(g:, 'md_tools_browser', $BROWSER)
 let g:md_tools_use_template = get(g:, 'md_tools_use_template', 1)
 
-" --- Helper Functions ---
-"
 " ============================================================================
-" Auto-load
+" Templates
 " ============================================================================
 
 function! s:MarkdownTools_LoadMarkdownTemplate() abort
@@ -53,8 +65,150 @@ function! s:MarkdownTools_LoadMarkdownTemplate() abort
     endif
 endfunction
 
+" Function to read and insert the selected template
+function! s:ReadSelectedTemplate(template_dict, template_name) abort
+    let l:template_path = a:template_dict[a:template_name]
+    let l:template_content = readfile(l:template_path)
+    " Insert template content at cursor position
+    call append(line('.') - 1, l:template_content)
+endfunction
+
+" Function to list and select templates using fzf
+function! MarkdownTools_InsertMarkdownTemplate() abort
+    " Check if template directory exists
+    if !isdirectory(g:WIKI_TEMPLATE_DIR)
+        echoerr "Template directory doesn't exist: " . g:WIKI_TEMPLATE_DIR
+        return
+    endif
+    " Get list of template files
+    let l:templates = split(globpath(g:WIKI_TEMPLATE_DIR, '*.md'), '\n')
+    " Extract template names for display
+    let l:template_names = map(copy(l:templates), 'fnamemodify(v:val, ":t:r")')
+    " Create dictionary mapping display names to full paths
+    let l:template_dict = {}
+    let l:index = 0
+    while l:index < len(l:templates)
+        let l:template_dict[l:template_names[l:index]] = l:templates[l:index]
+        let l:index += 1
+    endwhile
+    " Show selection menu using fzf
+    call fzf#run({
+        \ 'source': l:template_names,
+        \ 'sink': function('s:ReadSelectedTemplate', [l:template_dict]),
+        \ 'down': '25%'
+        \ })
+endfunction
+
 " ============================================================================
-" Path
+" Images
+" ============================================================================
+
+" Paste an image directly from the system clipboard to ./figures
+function! MarkdownTools_PasteClipboardImage() abort
+    if expand('%:p') == ''
+        echoerr "Please save the markdown file first to determine the directory path!"
+        return
+    endif
+    let l:current_dir = expand('%:p:h')
+    let l:fig_dir = l:current_dir . '/figures'
+    if !isdirectory(l:fig_dir) | call mkdir(l:fig_dir, 'p') | endif
+    let l:filename = 'clip_' . strftime('%Y%m%d_%H%M%S') . '.png'
+    let l:filepath = l:fig_dir . '/' . l:filename
+    let l:relpath = 'figures/' . l:filename
+    " Determine the clipboard tool based on the user's OS / Display Server
+    let l:cmd = ''
+    if executable('wl-paste')
+        " Wayland (Linux)
+        let l:cmd = 'wl-paste --type image/png > ' . shellescape(l:filepath)
+    elseif executable('xclip')
+        " X11 (Linux)
+        let l:cmd = 'xclip -selection clipboard -t image/png -o > ' . shellescape(l:filepath)
+    elseif executable('pngpaste')
+        " macOS (requires: brew install pngpaste)
+        let l:cmd = 'pngpaste ' . shellescape(l:filepath)
+    else
+        echoerr "Clipboard tool missing. Install xclip, wl-paste, or pngpaste."
+        return
+    endif
+    " Execute the paste command
+    call system(l:cmd)
+    " Verify if the image was actually saved (file size > 0)
+    if getfsize(l:filepath) > 0
+        " Insert the Markdown image syntax at the cursor
+        execute "normal! a![](" . l:relpath . ")\<Esc>"
+        redraw | echo "Clipboard image pasted to " . l:relpath
+    else
+        " Clean up the empty file if clipboard didn't contain an image
+        call system('rm ' . shellescape(l:filepath))
+        redraw | echo "No image found in system clipboard."
+    endif
+endfunction
+
+function! MarkdownTools_CaptureAndPasteImage() abort
+    if expand('%:p') == ''
+        echoerr "Please save the file first to determine the directory path!"
+        return
+    endif
+    let l:current_dir = expand('%:p:h')
+    let l:fig_dir = l:current_dir . '/figures'
+    if !isdirectory(l:fig_dir) | call mkdir(l:fig_dir, 'p') | endif
+    let l:filename = strftime('%Y%m%d_%H%M%S') . '.png'
+    let l:filepath = l:fig_dir . '/' . l:filename
+    let l:relpath = 'figures/' . l:filename
+    call system('flameshot gui -r > ' . shellescape(l:filepath))
+    if getfsize(l:filepath) > 0
+        call inputsave()
+        let l:width = input('Enter width (e.g., 50%, 400px, or blank for 100%): ')
+        call inputrestore()
+        let l:width = empty(l:width) ? '100%' : l:width
+        execute "normal! a<img src=\"" . l:relpath . "\" width=\"" . l:width . "\" alt=\"Screenshot\">\n\<Esc>"
+        redraw | echo "Screenshot captured!"
+    else
+        call system('rm ' . shellescape(l:filepath))
+        redraw | echo "Screenshot canceled."
+    endif
+endfunction
+
+" Convert HTML <img> tag on the current line to Markdown ![]() syntax
+function! MarkdownTools_ConvertImgHtmlToMarkdown() abort
+    let l:line = getline('.')
+    " Pattern to match the entire <img ... > tag
+    let l:img_pattern = '<img\s\+[^>]*>'
+    let l:match = matchstr(l:line, l:img_pattern)
+    if empty(l:match)
+        echoerr "No HTML <img> tag found on the current line."
+        return
+    endif
+    " Extract src, alt, and title attributes (handles both single and double quotes)
+    let l:src = matchstr(l:match, 'src=["'']\zs[^"'']\+\ze["'']')
+    let l:alt = matchstr(l:match, 'alt=["'']\zs[^"'']*\ze["'']')
+    let l:title = matchstr(l:match, 'title=["'']\zs[^"'']*\ze["'']')
+    if empty(l:src)
+        echoerr "No 'src' attribute found in the <img> tag."
+        return
+    endif
+    " If alt is empty but title exists, use the title as the [link name] fallback
+    if empty(l:alt) && !empty(l:title)
+        let l:alt = l:title
+    endif
+    " Construct the Markdown image string
+    let l:md_img = '![' . l:alt . '](' . l:src
+    " Append the title string if it exists
+    if !empty(l:title)
+        let l:md_img .= ' "' . l:title . '"'
+    endif
+    " Close the parentheses
+    let l:md_img .= ')'
+    " Escape the exact matched string for safe substitution
+    let l:escaped_match = escape(l:match, '/\.*$^~[ ]')
+    " Replace the first occurrence on the line
+    let l:new_line = substitute(l:line, '\V' . l:escaped_match, escape(l:md_img, '\&~'), '')
+    call setline('.', l:new_line)
+    redraw | echo "Converted HTML image to Markdown syntax."
+endfunction
+
+" ============================================================================
+" Paths
 " ============================================================================
 
 function! MarkdownTools_ToggleEnvPath(char) abort
@@ -84,6 +238,10 @@ function! MarkdownTools_ConvertAbsoluteToRelative(char) abort
     let l:relpath = trim(system(printf('realpath -s --relative-to=%s %s', shellescape(expand('%:p:h')), shellescape(l:path))))
     exe "normal! ci" . a:char . l:relpath
 endfunction
+
+" ============================================================================
+" Files
+" ============================================================================
 
 function! MarkdownTools_RenameFilePath() abort
     " 1. Identify target file under cursor or current buffer
@@ -301,31 +459,6 @@ endfunction
 " Link
 " ============================================================================
 
-function! MarkdownTools_CaptureAndPasteImage() abort
-    if expand('%:p') == ''
-        echoerr "Please save the file first to determine the directory path!"
-        return
-    endif
-    let l:current_dir = expand('%:p:h')
-    let l:fig_dir = l:current_dir . '/figures'
-    if !isdirectory(l:fig_dir) | call mkdir(l:fig_dir, 'p') | endif
-    let l:filename = strftime('%Y%m%d_%H%M%S') . '.png'
-    let l:filepath = l:fig_dir . '/' . l:filename
-    let l:relpath = 'figures/' . l:filename
-    call system('flameshot gui -r > ' . shellescape(l:filepath))
-    if getfsize(l:filepath) > 0
-        call inputsave()
-        let l:width = input('Enter width (e.g., 50%, 400px, or blank for 100%): ')
-        call inputrestore()
-        let l:width = empty(l:width) ? '100%' : l:width
-        execute "normal! a<img src=\"" . l:relpath . "\" width=\"" . l:width . "\" alt=\"Screenshot\">\n\<Esc>"
-        redraw | echo "Screenshot captured!"
-    else
-        call system('rm ' . shellescape(l:filepath))
-        redraw | echo "Screenshot canceled."
-    endif
-endfunction
-
 " Open the file, PDF, or URL under the cursor using the system default app
 function! MarkdownTools_OpenFileOrLink() abort
     let l:target = expand('<cfile>')
@@ -350,47 +483,6 @@ function! MarkdownTools_OpenFileOrLink() abort
         redraw | echo "Opened: " . l:target
     else
         echoerr "System open command (xdg-open / open) not found."
-    endif
-endfunction
-
-" Paste an image directly from the system clipboard to ./figures
-function! MarkdownTools_PasteClipboardImage() abort
-    if expand('%:p') == ''
-        echoerr "Please save the markdown file first to determine the directory path!"
-        return
-    endif
-    let l:current_dir = expand('%:p:h')
-    let l:fig_dir = l:current_dir . '/figures'
-    if !isdirectory(l:fig_dir) | call mkdir(l:fig_dir, 'p') | endif
-    let l:filename = 'clip_' . strftime('%Y%m%d_%H%M%S') . '.png'
-    let l:filepath = l:fig_dir . '/' . l:filename
-    let l:relpath = 'figures/' . l:filename
-    " Determine the clipboard tool based on the user's OS / Display Server
-    let l:cmd = ''
-    if executable('wl-paste')
-        " Wayland (Linux)
-        let l:cmd = 'wl-paste --type image/png > ' . shellescape(l:filepath)
-    elseif executable('xclip')
-        " X11 (Linux)
-        let l:cmd = 'xclip -selection clipboard -t image/png -o > ' . shellescape(l:filepath)
-    elseif executable('pngpaste')
-        " macOS (requires: brew install pngpaste)
-        let l:cmd = 'pngpaste ' . shellescape(l:filepath)
-    else
-        echoerr "Clipboard tool missing. Install xclip, wl-paste, or pngpaste."
-        return
-    endif
-    " Execute the paste command
-    call system(l:cmd)
-    " Verify if the image was actually saved (file size > 0)
-    if getfsize(l:filepath) > 0
-        " Insert the Markdown image syntax at the cursor
-        execute "normal! a![](" . l:relpath . ")\<Esc>"
-        redraw | echo "Clipboard image pasted to " . l:relpath
-    else
-        " Clean up the empty file if clipboard didn't contain an image
-        call system('rm ' . shellescape(l:filepath))
-        redraw | echo "No image found in system clipboard."
     endif
 endfunction
 
@@ -528,46 +620,8 @@ function! MarkdownTools_InsertWikiLink() abort
         \ }))
 endfunction
 
-" Convert HTML <img> tag on the current line to Markdown ![]() syntax
-function! MarkdownTools_ConvertImgHtmlToMarkdown() abort
-    let l:line = getline('.')
-    " Pattern to match the entire <img ... > tag
-    let l:img_pattern = '<img\s\+[^>]*>'
-    let l:match = matchstr(l:line, l:img_pattern)
-    if empty(l:match)
-        echoerr "No HTML <img> tag found on the current line."
-        return
-    endif
-    " Extract src, alt, and title attributes (handles both single and double quotes)
-    let l:src = matchstr(l:match, 'src=["'']\zs[^"'']\+\ze["'']')
-    let l:alt = matchstr(l:match, 'alt=["'']\zs[^"'']*\ze["'']')
-    let l:title = matchstr(l:match, 'title=["'']\zs[^"'']*\ze["'']')
-    if empty(l:src)
-        echoerr "No 'src' attribute found in the <img> tag."
-        return
-    endif
-    " If alt is empty but title exists, use the title as the [link name] fallback
-    if empty(l:alt) && !empty(l:title)
-        let l:alt = l:title
-    endif
-    " Construct the Markdown image string
-    let l:md_img = '![' . l:alt . '](' . l:src
-    " Append the title string if it exists
-    if !empty(l:title)
-        let l:md_img .= ' "' . l:title . '"'
-    endif
-    " Close the parentheses
-    let l:md_img .= ')'
-    " Escape the exact matched string for safe substitution
-    let l:escaped_match = escape(l:match, '/\.*$^~[ ]')
-    " Replace the first occurrence on the line
-    let l:new_line = substitute(l:line, '\V' . l:escaped_match, escape(l:md_img, '\&~'), '')
-    call setline('.', l:new_line)
-    redraw | echo "Converted HTML image to Markdown syntax."
-endfunction
-
 " ============================================================================
-" Collect Matches
+" Search
 " ============================================================================
 
 function! s:CollectMatches(pattern, skip_http) abort
@@ -668,45 +722,7 @@ function! MarkdownTools_LiveGrepVault() abort
 endfunction
 
 " ============================================================================
-" Templates
-" ============================================================================
-
-" Function to read and insert the selected template
-function! s:ReadSelectedTemplate(template_dict, template_name) abort
-    let l:template_path = a:template_dict[a:template_name]
-    let l:template_content = readfile(l:template_path)
-    " Insert template content at cursor position
-    call append(line('.') - 1, l:template_content)
-endfunction
-
-" Function to list and select templates using fzf
-function! MarkdownTools_InsertMarkdownTemplate() abort
-    " Check if template directory exists
-    if !isdirectory(g:WIKI_TEMPLATE_DIR)
-        echoerr "Template directory doesn't exist: " . g:WIKI_TEMPLATE_DIR
-        return
-    endif
-    " Get list of template files
-    let l:templates = split(globpath(g:WIKI_TEMPLATE_DIR, '*.md'), '\n')
-    " Extract template names for display
-    let l:template_names = map(copy(l:templates), 'fnamemodify(v:val, ":t:r")')
-    " Create dictionary mapping display names to full paths
-    let l:template_dict = {}
-    let l:index = 0
-    while l:index < len(l:templates)
-        let l:template_dict[l:template_names[l:index]] = l:templates[l:index]
-        let l:index += 1
-    endwhile
-    " Show selection menu using fzf
-    call fzf#run({
-        \ 'source': l:template_names,
-        \ 'sink': function('s:ReadSelectedTemplate', [l:template_dict]),
-        \ 'down': '25%'
-        \ })
-endfunction
-
-" ============================================================================
-" Export Functions
+" Export
 " ============================================================================
 
 " Locate plugin root dynamically relative to this script
@@ -729,32 +745,27 @@ augroup MarkdownToolsPlugin
 
     autocmd!
 
+    " ------------------------------------------------------------------------
+    " Configuration
+    " ------------------------------------------------------------------------
+
+    " Setup spell checking
+    autocmd FileType markdown setlocal spell
+
+    " ------------------------------------------------------------------------
+    " Templates
+    " ------------------------------------------------------------------------
+
     " Template insertion (auto-load)
     if g:md_tools_use_template
         autocmd BufNewFile *.md call s:MarkdownTools_LoadMarkdownTemplate()
     endif
 
-    " Setup spell checking
-    autocmd FileType markdown setlocal spell
-
     " Insert template and update datetime
     autocmd FileType markdown nnoremap <buffer> <Leader>mfI :call MarkdownTools_InsertMarkdownTemplate()<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mfd <Esc>:keeppatterns %s/YYYY-mm-DD HH:MM:SS/\=strftime("%Y-%m-%d %T")/g<CR>:keeppatterns %s/YYYY-mm-DD/\=strftime("%Y-%m-%d")/g<CR>
 
-    " Open files, links, markdown file (for preview)
-    autocmd FileType markdown nnoremap <buffer> <leader>mo :call MarkdownTools_OpenFileOrLink()<CR>
-    autocmd FileType markdown nnoremap <buffer> <leader>mO :exe '!'. g:md_tools_browser .' %:p &'<CR>
-    autocmd FileType markdown nnoremap <buffer> <leader>mP :exe '!'. g:md_tools_browser .' %:r.html &'<CR>
-
-   " Export files (1: Marp MD -> HTML, 2: Pandoc MD -> HTML, 3: Pandoc MD -> PDF, 4: Libreoffice HTML -> DOCX)
-    autocmd FileType markdown nnoremap <buffer> <leader>mfe1 :!marp % --html<CR>
-    "autocmd FileType markdown nnoremap <buffer> <leader>mfe2 :!pandoc % -f markdown -t html --standalone --data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --embed-resources --metadata=title:%:t:r --toc<space>
-    autocmd FileType markdown nnoremap <buffer> <leader>mfe2 :!pandoc % -f markdown -t html --standalone --data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --self-contained --metadata=title:%:t:r --toc<space>
-    autocmd FileType markdown nnoremap <buffer> <leader>mfe3 :!pandoc % -f markdown -t html --standalone --data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --metadata=title:%:t:r --toc<space>
-    autocmd FileType markdown nnoremap <buffer> <leader>mfe4 :<C-u><C-r>=<SID>GetExportMd2PdfCmd()<CR><space>--filter pandoc-citeproc<space>
-    autocmd FileType markdown nnoremap <buffer> <leader>mfe5 :!soffice --headless --infilter="HTML (StarWriter)" --convert-to "docx:MS Word 2007 XML" %:r.html<CR>
-
-    " Insertions
+    " Insert snippets
     autocmd FileType markdown nnoremap <buffer> <leader>mi <Esc>i![this_is_an_image]()<Left>
     autocmd FileType markdown nnoremap <buffer> <leader>mI <Esc>i<img src="" title="" width="100%" height="100%"/><Esc>38<Left>i
     autocmd FileType markdown nnoremap <buffer> <leader>mV <Esc>i<video src="" title="" width="100%" height="100%" controls/><Esc>47<Left>i
@@ -767,6 +778,21 @@ augroup MarkdownToolsPlugin
     autocmd FileType markdown nnoremap <buffer> <leader>mT :execute('r ' . g:md_tools_table_template)<CR>
     autocmd FileType markdown nnoremap <buffer> <leader><bar> :<Esc>i[^]<Left>
     autocmd FileType markdown nnoremap <buffer> <leader>mfi :call MarkdownTools_InsertWikiLink()<CR>
+
+    " ------------------------------------------------------------------------
+    " Images
+    " ------------------------------------------------------------------------
+
+    " File Note+Image management
+    autocmd FileType markdown nnoremap <buffer> <leader>mfp :call MarkdownTools_PasteClipboardImage()<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfP :call MarkdownTools_CaptureAndPasteImage()<CR>
+
+    " Convert HTML image to Markdown image syntax on current line
+    autocmd FileType markdown nnoremap <buffer> <leader>mfc :call MarkdownTools_ConvertImgHtmlToMarkdown()<CR>
+
+    " ------------------------------------------------------------------------
+    " Paths
+    " ------------------------------------------------------------------------
 
     " Path Tools (Env)
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfe" :call MarkdownTools_ToggleEnvPath('"')<CR>
@@ -792,13 +818,27 @@ augroup MarkdownToolsPlugin
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfr` :call MarkdownTools_ConvertAbsoluteToRelative('`')<CR>
     autocmd FileType markdown nnoremap <buffer> <silent> <leader>mfrw :call MarkdownTools_ConvertAbsoluteToRelative('W')<CR>
 
-    " Convert HTML image to Markdown image syntax on current line
-    autocmd FileType markdown nnoremap <buffer> <leader>mfc :call MarkdownTools_ConvertImgHtmlToMarkdown()<CR>
+    " ------------------------------------------------------------------------
+    " Files
+    " ------------------------------------------------------------------------
 
     " File migration flow (file, link, resources)
     autocmd FileType markdown nnoremap <buffer> <leader>mfR :call MarkdownTools_RenameFilePath()<CR>
     autocmd FileType markdown vnoremap <buffer> <leader>mfR :<C-u>call MarkdownTools_RenameFilePath()<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mfL :call MarkdownTools_LocalizeResources()<CR>
+
+    " ------------------------------------------------------------------------
+    " Links
+    " ------------------------------------------------------------------------
+
+    " Open files, links, markdown file (for preview)
+    autocmd FileType markdown nnoremap <buffer> <leader>mo :call MarkdownTools_OpenFileOrLink()<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mO :exe '!'. g:md_tools_browser .' %:p &'<CR>
+    autocmd FileType markdown nnoremap <buffer> <leader>mP :exe '!'. g:md_tools_browser .' %:r.html &'<CR>
+
+    " ------------------------------------------------------------------------
+    " Search
+    " ------------------------------------------------------------------------
 
     " Obsidian-Style Link & Backlink Discovery Tools for Vimwiki
     autocmd FileType markdown nnoremap <buffer> <leader>mfb :call MarkdownTools_FindBacklinks()<CR>
@@ -812,8 +852,17 @@ augroup MarkdownToolsPlugin
     autocmd FileType markdown nnoremap <buffer> <leader>mfh :lvimgrep /^#/ %<CR>
     autocmd FileType markdown nnoremap <buffer> <leader>mfH :vimgrep /^#/ %<CR>
 
-    " Note/Image management
-    autocmd FileType markdown nnoremap <buffer> <leader>mfp :call MarkdownTools_PasteClipboardImage()<CR>
-    autocmd FileType markdown nnoremap <buffer> <leader>mfP :call MarkdownTools_CaptureAndPasteImage()<CR>
+
+    " ------------------------------------------------------------------------
+    " Export
+    " ------------------------------------------------------------------------
+
+   " Export files (1: Marp MD -> HTML, 2: Pandoc MD -> HTML, 3: Pandoc MD -> PDF, 4: Libreoffice HTML -> DOCX)
+    autocmd FileType markdown nnoremap <buffer> <leader>mfe1 :!marp % --html<CR>
+    "autocmd FileType markdown nnoremap <buffer> <leader>mfe2 :!pandoc % -f markdown -t html --standalone --data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --embed-resources --metadata=title:%:t:r --toc<space>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfe2 :!pandoc % -f markdown -t html --standalone --data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --self-contained --metadata=title:%:t:r --toc<space>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfe3 :!pandoc % -f markdown -t html --standalone --data-dir=$HOME/.pandoc --template=bootstrap_menu.html -o %:r.html --metadata=title:%:t:r --toc<space>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfe4 :<C-u><C-r>=<SID>GetExportMd2PdfCmd()<CR><space>--filter pandoc-citeproc<space>
+    autocmd FileType markdown nnoremap <buffer> <leader>mfe5 :!soffice --headless --infilter="HTML (StarWriter)" --convert-to "docx:MS Word 2007 XML" %:r.html<CR>
 
 augroup END
