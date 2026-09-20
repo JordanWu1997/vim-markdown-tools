@@ -57,7 +57,7 @@ endfunction
 " Path
 " ============================================================================
 
-function! MarkdownTools_ToggleEnvPath(char)
+function! MarkdownTools_ToggleEnvPath(char) abort
     let l:word = expand('<cfile>')
     let l:home = $HOME
     if l:word =~? '^$HOME\>'
@@ -73,19 +73,19 @@ function! MarkdownTools_ToggleEnvPath(char)
     execute "normal! ci" . a:char . l:result
 endfunction
 
-function! MarkdownTools_ConvertRelativeToAbsolute(char)
+function! MarkdownTools_ConvertRelativeToAbsolute(char) abort
     let l:path = expand('<cfile>:p')
     let l:absolute = trim(system(printf('realpath %s', shellescape(l:path))))
     exe "normal! ci" . a:char . l:absolute
 endfunction
 
-function! MarkdownTools_ConvertAbsoluteToRelative(char)
+function! MarkdownTools_ConvertAbsoluteToRelative(char) abort
     let l:path = expand('<cfile>')
     let l:relpath = trim(system(printf('realpath -s --relative-to=%s %s', shellescape(expand('%:p:h')), shellescape(l:path))))
     exe "normal! ci" . a:char . l:relpath
 endfunction
 
-function! MarkdownTools_RenameFilePath()
+function! MarkdownTools_RenameFilePath() abort
     " 1. Identify target file under cursor or current buffer
     let l:target_file = expand('<cfile>')
     if empty(l:target_file) || (!filereadable(l:target_file) && !isdirectory(l:target_file))
@@ -235,7 +235,7 @@ function! MarkdownTools_RenameFilePath()
     redraw | echo printf("Target renamed successfully. Updated references across %d file(s).", l:updated_files_count)
 endfunction
 
-function! MarkdownTools_LocalizeResources(...)
+function! MarkdownTools_LocalizeResources(...) abort
     let l:target_dirs = a:0 > 0 ? a:000 : ['figures', 'assets', 'media', 'images']
     let l:current_file = expand('%:p')
     if empty(l:current_file) || !filereadable(l:current_file)
@@ -301,7 +301,7 @@ endfunction
 " Link
 " ============================================================================
 
-function! MarkdownTools_CaptureAndPasteImage()
+function! MarkdownTools_CaptureAndPasteImage() abort
     if expand('%:p') == ''
         echoerr "Please save the file first to determine the directory path!"
         return
@@ -327,7 +327,7 @@ function! MarkdownTools_CaptureAndPasteImage()
 endfunction
 
 " Open the file, PDF, or URL under the cursor using the system default app
-function! MarkdownTools_OpenFileOrLink()
+function! MarkdownTools_OpenFileOrLink() abort
     let l:target = expand('<cfile>')
     if empty(l:target)
         echoerr "No file or link found under cursor."
@@ -354,7 +354,7 @@ function! MarkdownTools_OpenFileOrLink()
 endfunction
 
 " Paste an image directly from the system clipboard to ./figures
-function! MarkdownTools_PasteClipboardImage()
+function! MarkdownTools_PasteClipboardImage() abort
     if expand('%:p') == ''
         echoerr "Please save the markdown file first to determine the directory path!"
         return
@@ -395,7 +395,7 @@ function! MarkdownTools_PasteClipboardImage()
 endfunction
 
 " Obsidian-Style Link & Backlink Discovery Tools for Vimwiki
-function! MarkdownTools_FindBacklinks()
+function! MarkdownTools_FindBacklinks() abort
     let l:current_file = expand('%:p')
     if empty(l:current_file)
         echoerr "Please save or open a valid file first."
@@ -455,7 +455,7 @@ function! MarkdownTools_FindBacklinks()
 endfunction
 
 " Obsidian-Style Link & Backlink Discovery Tools for Vimwiki
-function! MarkdownTools_FindOutlinks()
+function! MarkdownTools_FindOutlinks() abort
     let l:matches = []
     let l:current_file = expand('%:p')
 
@@ -490,7 +490,7 @@ function! MarkdownTools_FindOutlinks()
 endfunction
 
 " Insert Link from Vimwiki
-function! MarkdownTools_InsertWikiLink()
+function! MarkdownTools_InsertWikiLink() abort
     " Determine Vimwiki Root Directory
     let l:wiki_root = ''
     if exists('g:vimwiki_list') && !empty(g:vimwiki_list)
@@ -529,7 +529,7 @@ function! MarkdownTools_InsertWikiLink()
 endfunction
 
 " Convert HTML <img> tag on the current line to Markdown ![]() syntax
-function! MarkdownTools_ConvertImgHtmlToMarkdown()
+function! MarkdownTools_ConvertImgHtmlToMarkdown() abort
     let l:line = getline('.')
     " Pattern to match the entire <img ... > tag
     let l:img_pattern = '<img\s\+[^>]*>'
@@ -570,7 +570,7 @@ endfunction
 " Collect Matches
 " ============================================================================
 
-function! s:CollectMatches(pattern, skip_http)
+function! s:CollectMatches(pattern, skip_http) abort
     set re=1
     let l:matches = []
     for lnum in range(1, line('$'))
@@ -599,19 +599,19 @@ function! s:CollectMatches(pattern, skip_http)
     endif
 endfunction
 
-function! MarkdownTools_FindWebsitesOnly()
+function! MarkdownTools_FindWebsitesOnly() abort
     call s:CollectMatches('\vhttps?:\/\/[a-zA-Z0-9._~@%+=:,/?#&$!*\-]+', 0)
 endfunction
 
-function! MarkdownTools_FindFilepathsOnly()
+function! MarkdownTools_FindFilepathsOnly() abort
     call s:CollectMatches('\v((\$[A-Z_][A-Z0-9_]*|~|\.{1,2})?\/)?([a-zA-Z0-9 ._@%+=:,~$!\-]+\/)+[a-zA-Z0-9 ._@%+=:,~$!\-]+\.[a-zA-Z0-9]+', 1)
 endfunction
 
-function! MarkdownTools_FindAllPathsAndWebsites()
+function! MarkdownTools_FindAllPathsAndWebsites() abort
     call s:CollectMatches('\v(https?:\/\/[a-zA-Z0-9._~@%+=:,/?#&$!*\-]+)|((\$[A-Z_][A-Z0-9_]*|~|\.{1,2})?\/)?([a-zA-Z0-9 ._@%+=:,~$!\-]+\/)+[a-zA-Z0-9 ._@%+=:,~$!\-]+\.[a-zA-Z0-9]+', 0)
 endfunction
 
-function! MarkdownTools_LiveGrepVault()
+function! MarkdownTools_LiveGrepVault() abort
     if !executable('rg')
         echoerr "ripgrep ('rg') is not installed or not in PATH."
         return
@@ -710,7 +710,7 @@ endfunction
 " ============================================================================
 
 " Locate plugin root dynamically relative to this script
-function! s:GetExportMd2PdfCmd()
+function! s:GetExportMd2PdfCmd() abort
     let l:input  = expand('%')
     let l:output = expand('%:r') . '.pdf'
     let l:config = s:plugin_root . '/assets/weasyprint/document.yaml'

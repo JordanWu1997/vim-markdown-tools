@@ -9,9 +9,14 @@ Before using this plugin, ensure you have the following system dependencies inst
 - **Linux System**: Currently, this plugin has only been tested on Linux.
 - **flameshot**: For capturing screenshots.
 - **xclip**: For clipboard management (required by flameshot integration).
+- **realpath**: For path resolution (usually pre-installed on most Linux distributions).
 - **marp-cli**: For generating presentations from Markdown.
 - **pandoc**: For exporting Markdown to various formats (specifically HTML).
-- **realpath**: For path resolution (usually pre-installed on most Linux distributions).
+  - Extra
+    - `pandoc-citeproc`: Citation filter
+- **weasyprint**: For exporting Unicode Markdown to PDF
+  - Extra
+    - `fonts-noto-cjk`: Unicode Fonts for Chinese, Japanese, Korean
 
 ## Installation
 
